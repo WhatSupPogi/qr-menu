@@ -1,4 +1,3 @@
-// latest-vercel-check
 import QRCode from 'qrcode';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
@@ -18,12 +17,17 @@ export async function GET(request: Request) {
 
   const target = `${getBaseUrl()}/store/${slug}`;
   const buffer = await QRCode.toBuffer(target, { width: 600, margin: 2 });
+  const body = new Uint8Array(buffer);
+
   await writeMasterAction('download_qr', { slug, target });
-  return new NextResponse(new Uint8Array(buffer), {
+
+  return new Response(body, {
     headers: {
       'Content-Type': 'image/png',
       'Content-Disposition': `attachment; filename="${slug}-qr.png"`,
-    },
+      'Content-Length': String(body.byteLength),
+      'Cache-Control': 'no-store'
+    }
   });
 }
 
@@ -83,6 +87,12 @@ export async function POST(request: Request) {
     }
   }
 
-  await writeMasterAction('create_store', { store_id: store.id, slug, admin_email: admin_email || null, password_hash: admin_password ? hashText(admin_password) : null });
+  await writeMasterAction('create_store', {
+    store_id: store.id,
+    slug,
+    admin_email: admin_email || null,
+    password_hash: admin_password ? hashText(admin_password) : null
+  });
+
   return NextResponse.redirect(new URL('/master', origin));
 }

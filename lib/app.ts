@@ -339,7 +339,7 @@ export async function createProductWithOptionalImage(params: {
       if (updateError) throw updateError;
     }
 
-    revalidateTag(`store:${params.slug}`);
+    revalidateTag(`store:${params.slug}`, 'max');
     return { ok: true };
   } catch (error) {
     if (uploadedPath) {
@@ -416,7 +416,7 @@ export async function updateProductWithOptionalImage(params: {
       await service.storage.from('product-images').remove([existing.image_path]);
     }
 
-    revalidateTag(`store:${params.slug}`);
+    revalidateTag(`store:${params.slug}`, 'max');
     return { ok: true };
   } catch (error) {
     if (newPath) {
@@ -443,7 +443,7 @@ export async function deleteProductAndImage(params: { slug: string; storeId: str
   if (imagePath) {
     await service.storage.from('product-images').remove([imagePath]);
   }
-  revalidateTag(`store:${params.slug}`);
+  revalidateTag(`store:${params.slug}`, 'max');
   return { ok: true };
 }
 
