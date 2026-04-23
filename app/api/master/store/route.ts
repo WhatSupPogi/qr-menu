@@ -18,11 +18,11 @@ export async function GET(request: Request) {
   const target = `${getBaseUrl()}/store/${slug}`;
   const buffer = await QRCode.toBuffer(target, { width: 600, margin: 2 });
   await writeMasterAction('download_qr', { slug, target });
-  return new NextResponse(buffer, {
+  return new NextResponse(new Uint8Array(buffer), {
     headers: {
       'Content-Type': 'image/png',
-      'Content-Disposition': `attachment; filename="${slug}-qr.png"`
-    }
+      'Content-Disposition': `attachment; filename="${slug}-qr.png"`,
+    },
   });
 }
 
