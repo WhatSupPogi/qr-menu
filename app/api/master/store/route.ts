@@ -1,7 +1,7 @@
 import QRCode from 'qrcode';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { slugify, requireMasterSession, writeMasterAction, getBaseUrl, hashText } from '@/lib/app';
+import { slugify, requireMasterSession, writeMasterAction, hashText } from '@/lib/app';
 
 function service() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
@@ -11,11 +11,15 @@ function service() {
 
 export async function GET(request: Request) {
   await requireMasterSession();
-  const url = new URL(request.url);
-  const slug = url.searchParams.get('slug');
-  if (!slug) return NextResponse.json({ error: 'Missing slug' }, { status: 400 });
 
-  const target = `${getBaseUrl()}/store/${slug}`;
+  const url = new URL(request.url);
+  const slug = (url.searchParams.get('slug') || '').trim();
+
+  if (!slug) {
+    return NextResponse.json({ error: 'Missing slug' }, { status: 400 });
+  }
+
+  const target = `${url.origin}/store/${encodeURIComponent(slug)}`;
   const buffer = await QRCode.toBuffer(target, { width: 600, margin: 2 });
   const body = new Uint8Array(buffer);
 
@@ -54,6 +58,53 @@ export async function POST(request: Request) {
     return NextResponse.redirect(new URL('/master', origin));
   }
 
+  if (mode === 'admin') {
+    const store_id = String(form.get('store_id') || '').trim();
+    const admin_email = String(form.get('admin_email') || '').trim().toLowerCase();
+    const admin_password = String(form.get('admin_password') || '').trim();
+
+    if (!store_id) {
+      return NextResponse.json({ error: 'Missing store id.' }, { status: 400 });
+    }
+
+    const { data: mapping, error: mappingError } = await supabase
+      .from('admin_users')
+      .select('auth_id')
+      .eq('store_id', store_id)
+      .limit(1)
+      .maybeSingle();
+
+    if (mappingError) {
+      return NextResponse.json({ error: mappingError.message }, { status: 400 });
+    }
+
+    if (!mapping?.auth_id) {
+      return NextResponse.json({ error: 'No admin account found for this store.' }, { status: 404 });
+    }
+
+    const updates: { email?: string; password?: string } = {};
+    if (admin_email) updates.email = admin_email;
+    if (admin_password) updates.password = admin_password;
+
+    if (!updates.email && !updates.password) {
+      return NextResponse.json({ error: 'Enter a new email or password.' }, { status: 400 });
+    }
+
+    const { error: updateAuthError } = await supabase.auth.admin.updateUserById(mapping.auth_id, updates);
+
+    if (updateAuthError) {
+      return NextResponse.json({ error: updateAuthError.message }, { status: 400 });
+    }
+
+    await writeMasterAction('update_store_admin_credentials', {
+      store_id,
+      admin_email: admin_email || null,
+      password_hash: admin_password ? hashText(admin_password) : null
+    });
+
+    return NextResponse.redirect(new URL('/master', origin));
+  }
+
   const name = String(form.get('name') || '').trim();
   const business_type = String(form.get('business_type') || 'sari_sari');
   const plan_type = String(form.get('plan_type') || 'basic');
@@ -70,10 +121,23 @@ export async function POST(request: Request) {
 
   const { data: store, error } = await supabase
     .from('stores')
-    .insert({ name, slug, business_type, plan_type, owner_name, owner_phone, location, monthly_price, status: 'active' })
+    .insert({
+      name,
+      slug,
+      business_type,
+      plan_type,
+      owner_name,
+      owner_phone,
+      location,
+      monthly_price,
+      status: 'active'
+    })
     .select('*')
     .single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
 
   if (admin_email && admin_password) {
     const { data: createdUser, error: authError } = await supabase.auth.admin.createUser({
@@ -82,8 +146,13 @@ export async function POST(request: Request) {
       email_confirm: true,
       user_metadata: { store_slug: slug }
     });
+
     if (!authError && createdUser.user) {
-      await supabase.from('admin_users').insert({ store_id: store.id, auth_id: createdUser.user.id, role: 'owner' });
+      await supabase.from('admin_users').insert({
+        store_id: store.id,
+        auth_id: createdUser.user.id,
+        role: 'owner'
+      });
     }
   }
 

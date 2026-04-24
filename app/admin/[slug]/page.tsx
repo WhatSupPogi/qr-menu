@@ -243,13 +243,40 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
             Add, update, and manage your items in one place.
           </p>
         </div>
-        <button className="button secondary fit-button" onClick={signOut}>Sign Out</button>
+
+        <div className="inline-actions wrap-actions">
+          <a
+            className="button secondary fit-button"
+            href={`/store/${slug}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open Store Page
+          </a>
+
+          <a
+            className="button secondary fit-button"
+            href={`/api/admin/qr?slug=${encodeURIComponent(slug)}`}
+          >
+            Download QR
+          </a>
+
+          <button className="button secondary fit-button" onClick={signOut}>
+            Sign Out
+          </button>
+        </div>
       </section>
 
       <section className="stats-grid">
         <div className="card stat-card">
-          <div className="muted">Plan</div>
+          <div className="muted">Current Plan</div>
           <div className="kpi small-kpi">{data.store?.plan_type}</div>
+        </div>
+        <div className="card stat-card">
+          <div className="muted">Plan Options</div>
+          <div className="plan-options-text">
+            Basic / Standard / Plus
+          </div>
         </div>
         <div className="card stat-card">
           <div className="muted">Items</div>
