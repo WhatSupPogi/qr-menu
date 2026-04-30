@@ -22,6 +22,7 @@ export type StoreRow = {
   location: string;
   monthly_price: number;
   status: StoreStatus;
+  promo_banner: string | null;
   created_at: string;
 };
 
@@ -33,6 +34,12 @@ export type ProductRow = {
   image_url: string | null;
   image_path: string | null;
   in_stock: boolean;
+  is_best_seller: boolean;
+  is_featured: boolean;
+  promo_label: 'none' | 'HOT' | 'SALE' | 'NEW';
+  is_combo: boolean;
+  description: string | null;
+  display_order: number;
   created_at: string;
   updated_at: string;
 };
@@ -206,7 +213,7 @@ export async function requireStoreOwnershipBySlug(slug: string) {
 
   const { data: store } = await supabase
     .from('stores')
-    .select('id, slug, name, business_type, plan_type, status, owner_name, owner_phone, location')
+    .select('id, slug, name, business_type, plan_type, status, owner_name, owner_phone, location, promo_banner')
     .eq('slug', slug)
     .maybeSingle();
 
@@ -284,6 +291,12 @@ export async function createProductWithOptionalImage(params: {
   name: string;
   price: number;
   inStock: boolean;
+  isBestSeller: boolean;
+  isFeatured: boolean;
+  promoLabel: 'none' | 'HOT' | 'SALE' | 'NEW';
+  isCombo: boolean;
+  description: string | null;
+  displayOrder: number;
   imageFile?: File | null;
 }) {
   const supabase = getServiceSupabase();
@@ -306,6 +319,12 @@ export async function createProductWithOptionalImage(params: {
         name: params.name,
         price: params.price,
         in_stock: params.inStock,
+        is_best_seller: params.isBestSeller,
+        is_featured: params.isFeatured,
+        promo_label: params.promoLabel,
+        is_combo: params.isCombo,
+        description: params.description,
+        display_order: params.displayOrder,
         image_url: null,
         image_path: null
       })
@@ -359,6 +378,12 @@ export async function updateProductWithOptionalImage(params: {
   name: string;
   price: number;
   inStock: boolean;
+  isBestSeller: boolean;
+  isFeatured: boolean;
+  promoLabel: 'none' | 'HOT' | 'SALE' | 'NEW';
+  isCombo: boolean;
+  description: string | null;
+  displayOrder: number;
   imageFile?: File | null;
 }) {
   const service = getServiceSupabase();
@@ -405,6 +430,12 @@ export async function updateProductWithOptionalImage(params: {
         name: params.name,
         price: params.price,
         in_stock: params.inStock,
+        is_best_seller: params.isBestSeller,
+        is_featured: params.isFeatured,
+        promo_label: params.promoLabel,
+        is_combo: params.isCombo,
+        description: params.description,
+        display_order: params.displayOrder,
         image_url,
         image_path
       })
@@ -453,7 +484,7 @@ export const getPublicStoreCached = (slug: string) =>
       const supabase = getServiceSupabase();
       const { data: store, error: storeError } = await supabase
         .from('stores')
-        .select('id, name, slug, business_type, plan_type, location, status')
+        .select('id, name, slug, business_type, plan_type, location, status, promo_banner')
         .eq('slug', slug)
         .eq('status', 'active')
         .single();
@@ -461,8 +492,11 @@ export const getPublicStoreCached = (slug: string) =>
 
       const { data: products, error: productError } = await supabase
         .from('products')
-        .select('id, name, price, image_url, in_stock')
+        .select('id, name, price, image_url, in_stock, is_best_seller, is_featured, promo_label, is_combo, description, display_order, created_at')
         .eq('store_id', store.id)
+        .order('is_featured', { ascending: false })
+        .order('is_best_seller', { ascending: false })
+        .order('display_order', { ascending: true })
         .order('created_at', { ascending: false });
       if (productError) throw productError;
       return { store, products };
