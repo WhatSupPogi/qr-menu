@@ -32,11 +32,6 @@ function formatPrice(price: number) {
   return `₱ ${Number(price || 0).toFixed(2)}`;
 }
 
-function getBusinessLabel(type: string) {
-  if (type === 'restaurant') return 'Restaurant Menu';
-  return 'Sari-Sari Store Menu';
-}
-
 export default function StoreView({
   store,
   products
@@ -71,7 +66,6 @@ export default function StoreView({
         <div className="hero-content">
           <div className="hero-chip">QR Menu</div>
           <h1>{store.name}</h1>
-          <p className="hero-subtitle">{getBusinessLabel(store.business_type)}</p>
 
           <div className="hero-meta-row">
             {store.location ? <span>{store.location}</span> : null}
@@ -229,13 +223,6 @@ export default function StoreView({
           line-height: 0.95;
           letter-spacing: -0.06em;
           font-weight: 950;
-        }
-
-        .hero-subtitle {
-          margin: 14px 0 0;
-          font-size: 17px;
-          color: rgba(255, 255, 255, 0.82);
-          font-weight: 600;
         }
 
         .hero-meta-row {
