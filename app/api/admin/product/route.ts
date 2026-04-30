@@ -25,25 +25,13 @@ function toNumber(value: FormDataEntryValue | null) {
 
 function fallbackPlanConfig(businessType: string, planType: string) {
   if (businessType === 'restaurant') {
-    if (planType === 'standard') {
-      return { product_limit: 100, image_limit_kb: 500, photo_count_limit: 100 };
-    }
-
-    if (planType === 'plus') {
-      return { product_limit: 300, image_limit_kb: 700, photo_count_limit: 300 };
-    }
-
+    if (planType === 'standard') return { product_limit: 100, image_limit_kb: 500, photo_count_limit: 100 };
+    if (planType === 'plus') return { product_limit: 300, image_limit_kb: 700, photo_count_limit: 300 };
     return { product_limit: 50, image_limit_kb: 300, photo_count_limit: 50 };
   }
 
-  if (planType === 'standard') {
-    return { product_limit: 100, image_limit_kb: 100, photo_count_limit: 40 };
-  }
-
-  if (planType === 'plus') {
-    return { product_limit: 300, image_limit_kb: 150, photo_count_limit: 120 };
-  }
-
+  if (planType === 'standard') return { product_limit: 100, image_limit_kb: 100, photo_count_limit: 40 };
+  if (planType === 'plus') return { product_limit: 300, image_limit_kb: 150, photo_count_limit: 120 };
   return { product_limit: 50, image_limit_kb: 100, photo_count_limit: 20 };
 }
 
@@ -57,9 +45,7 @@ async function getSafePlanConfig(service: ReturnType<typeof getServiceSupabase>,
     .eq('plan_type', planType)
     .maybeSingle();
 
-  if (error || !data) {
-    return fallback;
-  }
+  if (error || !data) return fallback;
 
   return {
     product_limit: Number(data.product_limit || fallback.product_limit),
@@ -106,10 +92,7 @@ export async function GET(request: Request) {
   const slug = (url.searchParams.get('slug') || '').trim();
 
   if (!slug) {
-    return NextResponse.json(
-      { authenticated: false, error: 'Missing slug.' },
-      { status: 400 }
-    );
+    return NextResponse.json({ authenticated: false, error: 'Missing slug.' }, { status: 400 });
   }
 
   const service = getServiceSupabase();
@@ -121,34 +104,30 @@ export async function GET(request: Request) {
     .maybeSingle();
 
   if (storeError) {
-    return NextResponse.json(
-      { authenticated: false, error: storeError.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ authenticated: false, error: storeError.message }, { status: 500 });
   }
 
   if (!store) {
-    return NextResponse.json(
-      { authenticated: false, error: 'Store not found.' },
-      { status: 200 }
-    );
+    return NextResponse.json({ authenticated: false, error: 'Store not found.' }, { status: 200 });
   }
 
   const safeStore = publicStorePayload(store);
+  const plan = await getSafePlanConfig(service, safeStore.business_type, safeStore.plan_type);
+  const usage = await getSafeUsage(service, safeStore.id);
 
   if (safeStore.status !== 'active') {
-    return NextResponse.json(
-      { authenticated: false, store: safeStore, error: 'This store is suspended.' },
-      { status: 200 }
-    );
+    return NextResponse.json({
+      authenticated: false,
+      store: safeStore,
+      plan,
+      usage,
+      error: 'This store is suspended.'
+    });
   }
 
   const supabase = await getServerSupabase();
   const { data: authData } = await supabase.auth.getUser();
   const user = authData.user;
-
-  const plan = await getSafePlanConfig(service, safeStore.business_type, safeStore.plan_type);
-  const usage = await getSafeUsage(service, safeStore.id);
 
   if (!user) {
     return NextResponse.json({
@@ -167,10 +146,13 @@ export async function GET(request: Request) {
     .maybeSingle();
 
   if (adminError) {
-    return NextResponse.json(
-      { authenticated: false, store: safeStore, plan, usage, error: adminError.message },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      authenticated: false,
+      store: safeStore,
+      plan,
+      usage,
+      error: adminError.message
+    }, { status: 500 });
   }
 
   if (!adminUser) {
@@ -195,10 +177,13 @@ export async function GET(request: Request) {
     .order('created_at', { ascending: false });
 
   if (productsError) {
-    return NextResponse.json(
-      { authenticated: true, store: safeStore, plan, usage, error: productsError.message },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      authenticated: true,
+      store: safeStore,
+      plan,
+      usage,
+      error: productsError.message
+    }, { status: 500 });
   }
 
   return NextResponse.json({
@@ -234,10 +219,7 @@ export async function POST(request: Request) {
       .update({ promo_banner: promoBanner })
       .eq('id', owned.store.id);
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json({ ok: true });
   }
 
@@ -248,12 +230,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing product id.' }, { status: 400 });
     }
 
-    await deleteProductAndImage({
-      slug,
-      storeId: owned.store.id,
-      productId
-    });
-
+    await deleteProductAndImage({ slug, storeId: owned.store.id, productId });
     return NextResponse.json({ ok: true });
   }
 
