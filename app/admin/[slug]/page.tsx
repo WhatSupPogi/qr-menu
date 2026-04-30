@@ -1,4 +1,4 @@
-use client';
+'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import { getBrowserSupabase } from '@/lib/client';
@@ -252,10 +252,7 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
             <p className="muted">Sign in to manage your items.</p>
           </div>
 
-          {data?.store?.name ? (
-            <div className="notice">Store: {data.store.name}</div>
-          ) : null}
-
+          {data?.store?.name ? <div className="notice">Store: {data.store.name}</div> : null}
           {data?.error ? <div className="error">{data.error}</div> : null}
           {error ? <div className="error">{error}</div> : null}
           {message ? <div className="success">{message}</div> : null}
