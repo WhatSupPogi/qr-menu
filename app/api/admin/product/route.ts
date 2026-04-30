@@ -2,10 +2,8 @@ import { NextResponse } from 'next/server';
 import {
   createProductWithOptionalImage,
   deleteProductAndImage,
-  getPlanConfigByStoreId,
   getServerSupabase,
   getServiceSupabase,
-  getStoreUsage,
   requireStoreOwnershipBySlug,
   updateProductWithOptionalImage
 } from '@/lib/app';
@@ -23,6 +21,84 @@ function toBool(value: FormDataEntryValue | null) {
 function toNumber(value: FormDataEntryValue | null) {
   const numberValue = Number(value || 0);
   return Number.isFinite(numberValue) ? numberValue : 0;
+}
+
+function fallbackPlanConfig(businessType: string, planType: string) {
+  if (businessType === 'restaurant') {
+    if (planType === 'standard') {
+      return { product_limit: 100, image_limit_kb: 500, photo_count_limit: 100 };
+    }
+
+    if (planType === 'plus') {
+      return { product_limit: 300, image_limit_kb: 700, photo_count_limit: 300 };
+    }
+
+    return { product_limit: 50, image_limit_kb: 300, photo_count_limit: 50 };
+  }
+
+  if (planType === 'standard') {
+    return { product_limit: 100, image_limit_kb: 100, photo_count_limit: 40 };
+  }
+
+  if (planType === 'plus') {
+    return { product_limit: 300, image_limit_kb: 150, photo_count_limit: 120 };
+  }
+
+  return { product_limit: 50, image_limit_kb: 100, photo_count_limit: 20 };
+}
+
+async function getSafePlanConfig(service: ReturnType<typeof getServiceSupabase>, businessType: string, planType: string) {
+  const fallback = fallbackPlanConfig(businessType, planType);
+
+  const { data, error } = await service
+    .from('plan_configs')
+    .select('product_limit, image_limit_kb, photo_count_limit')
+    .eq('business_type', businessType)
+    .eq('plan_type', planType)
+    .maybeSingle();
+
+  if (error || !data) {
+    return fallback;
+  }
+
+  return {
+    product_limit: Number(data.product_limit || fallback.product_limit),
+    image_limit_kb: Number(data.image_limit_kb || fallback.image_limit_kb),
+    photo_count_limit: Number(data.photo_count_limit || fallback.photo_count_limit)
+  };
+}
+
+async function getSafeUsage(service: ReturnType<typeof getServiceSupabase>, storeId: string) {
+  const { count: productCount } = await service
+    .from('products')
+    .select('id', { count: 'exact', head: true })
+    .eq('store_id', storeId);
+
+  const { count: imageCount } = await service
+    .from('products')
+    .select('id', { count: 'exact', head: true })
+    .eq('store_id', storeId)
+    .not('image_url', 'is', null);
+
+  return {
+    productCount: productCount || 0,
+    imageCount: imageCount || 0
+  };
+}
+
+function publicStorePayload(store: any) {
+  return {
+    id: store.id,
+    slug: store.slug,
+    name: store.name || '',
+    business_type: store.business_type || 'sari_sari',
+    plan_type: store.plan_type || 'basic',
+    status: store.status || 'active',
+    owner_name: store.owner_name || '',
+    owner_phone: store.owner_phone || '',
+    location: store.location || '',
+    promo_banner: store.promo_banner || ''
+  };
 }
 
 export async function GET(request: Request) {
@@ -58,9 +134,11 @@ export async function GET(request: Request) {
     );
   }
 
-  if (store.status !== 'active') {
+  const safeStore = publicStorePayload(store);
+
+  if (safeStore.status !== 'active') {
     return NextResponse.json(
-      { authenticated: false, error: 'This store is suspended.' },
+      { authenticated: false, store: safeStore, error: 'This store is suspended.' },
       { status: 200 }
     );
   }
@@ -69,23 +147,15 @@ export async function GET(request: Request) {
   const { data: authData } = await supabase.auth.getUser();
   const user = authData.user;
 
-  const publicStore = {
-    id: store.id,
-    slug: store.slug,
-    name: store.name,
-    business_type: store.business_type,
-    plan_type: store.plan_type,
-    status: store.status,
-    owner_name: store.owner_name,
-    owner_phone: store.owner_phone,
-    location: store.location,
-    promo_banner: store.promo_banner || ''
-  };
+  const plan = await getSafePlanConfig(service, safeStore.business_type, safeStore.plan_type);
+  const usage = await getSafeUsage(service, safeStore.id);
 
   if (!user) {
     return NextResponse.json({
       authenticated: false,
-      store: publicStore
+      store: safeStore,
+      plan,
+      usage
     });
   }
 
@@ -93,12 +163,12 @@ export async function GET(request: Request) {
     .from('admin_users')
     .select('store_id, role')
     .eq('auth_id', user.id)
-    .eq('store_id', store.id)
+    .eq('store_id', safeStore.id)
     .maybeSingle();
 
   if (adminError) {
     return NextResponse.json(
-      { authenticated: false, error: adminError.message },
+      { authenticated: false, store: safeStore, plan, usage, error: adminError.message },
       { status: 500 }
     );
   }
@@ -106,40 +176,38 @@ export async function GET(request: Request) {
   if (!adminUser) {
     return NextResponse.json({
       authenticated: false,
-      store: publicStore,
+      store: safeStore,
+      plan,
+      usage,
       error: 'Please sign in with this store account.'
     });
   }
 
-  const [plan, usage, productsResult] = await Promise.all([
-    getPlanConfigByStoreId(service, store.id),
-    getStoreUsage(service, store.id),
-    service
-      .from('products')
-      .select(
-        'id, store_id, name, price, image_url, image_path, in_stock, is_best_seller, is_featured, promo_label, is_combo, description, display_order, created_at, updated_at'
-      )
-      .eq('store_id', store.id)
-      .order('is_featured', { ascending: false })
-      .order('is_best_seller', { ascending: false })
-      .order('display_order', { ascending: true })
-      .order('created_at', { ascending: false })
-  ]);
+  const { data: products, error: productsError } = await service
+    .from('products')
+    .select(
+      'id, store_id, name, price, image_url, image_path, in_stock, is_best_seller, is_featured, promo_label, is_combo, description, display_order, created_at, updated_at'
+    )
+    .eq('store_id', safeStore.id)
+    .order('is_featured', { ascending: false })
+    .order('is_best_seller', { ascending: false })
+    .order('display_order', { ascending: true })
+    .order('created_at', { ascending: false });
 
-  if (productsResult.error) {
+  if (productsError) {
     return NextResponse.json(
-      { authenticated: true, error: productsResult.error.message },
+      { authenticated: true, store: safeStore, plan, usage, error: productsError.message },
       { status: 500 }
     );
   }
 
   return NextResponse.json({
     authenticated: true,
-    store: publicStore,
+    store: safeStore,
     adminUser,
     plan,
     usage,
-    products: productsResult.data || []
+    products: products || []
   });
 }
 
