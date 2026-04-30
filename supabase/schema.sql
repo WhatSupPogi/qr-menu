@@ -11,9 +11,11 @@ create table if not exists public.stores (
   location text not null,
   monthly_price numeric(12,2) not null default 0,
   status text not null default 'active' check (status in ('active', 'suspended')),
-  promo_banner text,
   created_at timestamptz not null default now()
 );
+
+alter table public.stores
+add column if not exists promo_banner text;
 
 create table if not exists public.plan_configs (
   id uuid primary key default gen_random_uuid(),
@@ -42,26 +44,28 @@ create table if not exists public.products (
   image_url text,
   image_path text,
   in_stock boolean not null default true,
-  is_best_seller boolean not null default false,
-  is_featured boolean not null default false,
-  promo_label text not null default 'none' check (promo_label in ('none', 'HOT', 'SALE', 'NEW')),
-  is_combo boolean not null default false,
-  description text,
-  display_order integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
-alter table public.stores add column if not exists promo_banner text;
-alter table public.products add column if not exists is_best_seller boolean not null default false;
-alter table public.products add column if not exists is_featured boolean not null default false;
-alter table public.products add column if not exists promo_label text not null default 'none';
-alter table public.products add column if not exists is_combo boolean not null default false;
-alter table public.products add column if not exists description text;
-alter table public.products add column if not exists display_order integer not null default 0;
+alter table public.products
+add column if not exists is_best_seller boolean not null default false;
 
-alter table public.products drop constraint if exists products_promo_label_check;
-alter table public.products add constraint products_promo_label_check check (promo_label in ('none', 'HOT', 'SALE', 'NEW'));
+alter table public.products
+add column if not exists is_featured boolean not null default false;
+
+alter table public.products
+add column if not exists promo_label text not null default 'none'
+check (promo_label in ('none', 'HOT', 'SALE', 'NEW'));
+
+alter table public.products
+add column if not exists is_combo boolean not null default false;
+
+alter table public.products
+add column if not exists description text;
+
+alter table public.products
+add column if not exists display_order integer not null default 0;
 
 create or replace function public.set_updated_at()
 returns trigger language plpgsql as $$

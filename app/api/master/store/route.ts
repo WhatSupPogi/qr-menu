@@ -9,11 +9,15 @@ function service() {
   });
 }
 
+function cleanText(value: FormDataEntryValue | null) {
+  return String(value || '').trim();
+}
+
 export async function GET(request: Request) {
   await requireMasterSession();
 
   const url = new URL(request.url);
-  const slug = (url.searchParams.get('slug') || '').trim();
+  const slug = cleanText(url.searchParams.get('slug'));
 
   if (!slug) {
     return NextResponse.json({ error: 'Missing slug' }, { status: 400 });
@@ -37,83 +41,176 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   await requireMasterSession();
+
   const supabase = service();
   const form = await request.formData();
-  const mode = String(form.get('mode') || 'create');
+  const mode = cleanText(form.get('mode')) || 'create';
   const origin = new URL(request.url).origin;
 
   if (mode === 'status') {
-    const store_id = String(form.get('store_id') || '');
-    const status = String(form.get('status') || '');
-    await supabase.from('stores').update({ status }).eq('id', store_id);
+    const store_id = cleanText(form.get('store_id'));
+    const status = cleanText(form.get('status'));
+
+    if (!store_id || !['active', 'suspended'].includes(status)) {
+      return NextResponse.json({ error: 'Invalid status update.' }, { status: 400 });
+    }
+
+    const { error } = await supabase.from('stores').update({ status }).eq('id', store_id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
     await writeMasterAction('update_store_status', { store_id, status });
     return NextResponse.redirect(new URL('/master', origin));
   }
 
   if (mode === 'plan') {
-    const store_id = String(form.get('store_id') || '');
-    const plan_type = String(form.get('plan_type') || '');
-    await supabase.from('stores').update({ plan_type }).eq('id', store_id);
+    const store_id = cleanText(form.get('store_id'));
+    const plan_type = cleanText(form.get('plan_type'));
+
+    if (!store_id || !['basic', 'standard', 'plus'].includes(plan_type)) {
+      return NextResponse.json({ error: 'Invalid plan update.' }, { status: 400 });
+    }
+
+    const { error } = await supabase.from('stores').update({ plan_type }).eq('id', store_id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
     await writeMasterAction('update_store_plan', { store_id, plan_type });
     return NextResponse.redirect(new URL('/master', origin));
   }
 
-  if (mode === 'admin') {
-    const store_id = String(form.get('store_id') || '').trim();
-    const admin_email = String(form.get('admin_email') || '').trim().toLowerCase();
-    const admin_password = String(form.get('admin_password') || '').trim();
+  if (mode === 'update_store') {
+    const store_id = cleanText(form.get('store_id'));
+    const name = cleanText(form.get('name'));
+    const owner_name = cleanText(form.get('owner_name'));
+    const owner_phone = cleanText(form.get('owner_phone'));
+    const location = cleanText(form.get('location'));
+    const monthly_price = Number(form.get('monthly_price') || 0);
+    const promo_banner = cleanText(form.get('promo_banner')).slice(0, 180);
 
-    if (!store_id) {
-      return NextResponse.json({ error: 'Missing store id.' }, { status: 400 });
+    if (!store_id || !name || !owner_name || !owner_phone || !location) {
+      return NextResponse.json({ error: 'Missing store information.' }, { status: 400 });
     }
 
-    const { data: mapping, error: mappingError } = await supabase
+    const { error } = await supabase
+      .from('stores')
+      .update({ name, owner_name, owner_phone, location, monthly_price, promo_banner })
+      .eq('id', store_id);
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+    await writeMasterAction('update_store_info', { store_id });
+    return NextResponse.redirect(new URL('/master', origin));
+  }
+
+  if (mode === 'update_login') {
+    const store_id = cleanText(form.get('store_id'));
+    const admin_email = cleanText(form.get('admin_email')).toLowerCase();
+    const admin_password = cleanText(form.get('admin_password'));
+
+    if (!store_id || !admin_email) {
+      return NextResponse.json({ error: 'Admin email is required.' }, { status: 400 });
+    }
+
+    const { data: currentAdmin } = await supabase
       .from('admin_users')
       .select('auth_id')
       .eq('store_id', store_id)
-      .limit(1)
       .maybeSingle();
 
-    if (mappingError) {
-      return NextResponse.json({ error: mappingError.message }, { status: 400 });
+    if (currentAdmin?.auth_id) {
+      const updatePayload: { email: string; password?: string; email_confirm?: boolean } = {
+        email: admin_email,
+        email_confirm: true
+      };
+
+      if (admin_password) updatePayload.password = admin_password;
+
+      const { error: updateError } = await supabase.auth.admin.updateUserById(currentAdmin.auth_id, updatePayload);
+      if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
+    } else {
+      if (!admin_password) {
+        return NextResponse.json({ error: 'Password is required for a new admin account.' }, { status: 400 });
+      }
+
+      const { data: createdUser, error: createError } = await supabase.auth.admin.createUser({
+        email: admin_email,
+        password: admin_password,
+        email_confirm: true
+      });
+
+      if (createError) return NextResponse.json({ error: createError.message }, { status: 400 });
+
+      if (createdUser.user) {
+        const { error: linkError } = await supabase
+          .from('admin_users')
+          .insert({ store_id, auth_id: createdUser.user.id, role: 'owner' });
+
+        if (linkError) return NextResponse.json({ error: linkError.message }, { status: 400 });
+      }
     }
 
-    if (!mapping?.auth_id) {
-      return NextResponse.json({ error: 'No admin account found for this store.' }, { status: 404 });
-    }
-
-    const updates: { email?: string; password?: string } = {};
-    if (admin_email) updates.email = admin_email;
-    if (admin_password) updates.password = admin_password;
-
-    if (!updates.email && !updates.password) {
-      return NextResponse.json({ error: 'Enter a new email or password.' }, { status: 400 });
-    }
-
-    const { error: updateAuthError } = await supabase.auth.admin.updateUserById(mapping.auth_id, updates);
-
-    if (updateAuthError) {
-      return NextResponse.json({ error: updateAuthError.message }, { status: 400 });
-    }
-
-    await writeMasterAction('update_store_admin_credentials', {
+    await writeMasterAction('update_store_login', {
       store_id,
-      admin_email: admin_email || null,
+      admin_email,
       password_hash: admin_password ? hashText(admin_password) : null
     });
 
     return NextResponse.redirect(new URL('/master', origin));
   }
 
-  const name = String(form.get('name') || '').trim();
-  const business_type = String(form.get('business_type') || 'sari_sari');
-  const plan_type = String(form.get('plan_type') || 'basic');
-  const owner_name = String(form.get('owner_name') || '').trim();
-  const owner_phone = String(form.get('owner_phone') || '').trim();
-  const location = String(form.get('location') || '').trim();
+  if (mode === 'delete_store') {
+    const store_id = cleanText(form.get('store_id'));
+
+    if (!store_id) {
+      return NextResponse.json({ error: 'Missing store id.' }, { status: 400 });
+    }
+
+    const { data: products } = await supabase
+      .from('products')
+      .select('image_path')
+      .eq('store_id', store_id)
+      .not('image_path', 'is', null);
+
+    const imagePaths = (products || [])
+      .map((row: any) => row.image_path)
+      .filter(Boolean);
+
+    if (imagePaths.length > 0) {
+      await supabase.storage.from('product-images').remove(imagePaths);
+    }
+
+    const { data: admins } = await supabase
+      .from('admin_users')
+      .select('auth_id')
+      .eq('store_id', store_id);
+
+    const authIds = (admins || [])
+      .map((row: any) => row.auth_id)
+      .filter(Boolean);
+
+    const { error } = await supabase.from('stores').delete().eq('id', store_id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+    for (const authId of authIds) {
+      await supabase.auth.admin.deleteUser(authId);
+    }
+
+    await writeMasterAction('delete_store', { store_id });
+    return NextResponse.redirect(new URL('/master', origin));
+  }
+
+  const name = cleanText(form.get('name'));
+  const business_type = cleanText(form.get('business_type')) || 'sari_sari';
+  const plan_type = cleanText(form.get('plan_type')) || 'basic';
+  const owner_name = cleanText(form.get('owner_name'));
+  const owner_phone = cleanText(form.get('owner_phone'));
+  const location = cleanText(form.get('location'));
   const monthly_price = Number(form.get('monthly_price') || 0);
-  const admin_email = String(form.get('admin_email') || '').trim().toLowerCase();
-  const admin_password = String(form.get('admin_password') || '').trim();
+  const admin_email = cleanText(form.get('admin_email')).toLowerCase();
+  const admin_password = cleanText(form.get('admin_password'));
+
+  if (!name || !owner_name || !owner_phone || !location) {
+    return NextResponse.json({ error: 'Missing required store fields.' }, { status: 400 });
+  }
 
   let slug = slugify(name);
   const { data: existing } = await supabase.from('stores').select('slug').eq('slug', slug).maybeSingle();
@@ -135,9 +232,7 @@ export async function POST(request: Request) {
     .select('*')
     .single();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
-  }
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
   if (admin_email && admin_password) {
     const { data: createdUser, error: authError } = await supabase.auth.admin.createUser({
