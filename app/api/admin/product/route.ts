@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server';
 import {
-  createProductWithOptionalImage,
-  deleteProductAndImage,
   getServerSupabase,
   getServiceSupabase,
-  requireStoreOwnershipBySlug,
-  updateProductWithOptionalImage
+  requireStoreOwnershipBySlug
 } from '@/lib/app';
+
+const BUCKET = 'product-images';
 
 function cleanPromoLabel(value: FormDataEntryValue | null) {
   const label = String(value || 'none').trim().toUpperCase();
@@ -23,6 +22,14 @@ function toNumber(value: FormDataEntryValue | null) {
   return Number.isFinite(numberValue) ? numberValue : 0;
 }
 
+function safeFileName(name: string) {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9.]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
 function fallbackPlanConfig(businessType: string, planType: string) {
   if (businessType === 'restaurant') {
     if (planType === 'standard') return { product_limit: 100, image_limit_kb: 500, photo_count_limit: 100 };
@@ -35,17 +42,17 @@ function fallbackPlanConfig(businessType: string, planType: string) {
   return { product_limit: 50, image_limit_kb: 100, photo_count_limit: 20 };
 }
 
-async function getSafePlanConfig(service: ReturnType<typeof getServiceSupabase>, businessType: string, planType: string) {
+async function getPlan(service: ReturnType<typeof getServiceSupabase>, businessType: string, planType: string) {
   const fallback = fallbackPlanConfig(businessType, planType);
 
-  const { data, error } = await service
+  const { data } = await service
     .from('plan_configs')
     .select('product_limit, image_limit_kb, photo_count_limit')
     .eq('business_type', businessType)
     .eq('plan_type', planType)
     .maybeSingle();
 
-  if (error || !data) return fallback;
+  if (!data) return fallback;
 
   return {
     product_limit: Number(data.product_limit || fallback.product_limit),
@@ -54,7 +61,7 @@ async function getSafePlanConfig(service: ReturnType<typeof getServiceSupabase>,
   };
 }
 
-async function getSafeUsage(service: ReturnType<typeof getServiceSupabase>, storeId: string) {
+async function getUsage(service: ReturnType<typeof getServiceSupabase>, storeId: string) {
   const { count: productCount } = await service
     .from('products')
     .select('id', { count: 'exact', head: true })
@@ -72,7 +79,7 @@ async function getSafeUsage(service: ReturnType<typeof getServiceSupabase>, stor
   };
 }
 
-function publicStorePayload(store: any) {
+function storePayload(store: any) {
   return {
     id: store.id,
     slug: store.slug,
@@ -85,6 +92,47 @@ function publicStorePayload(store: any) {
     location: store.location || '',
     promo_banner: store.promo_banner || ''
   };
+}
+
+async function uploadImage({
+  service,
+  storeSlug,
+  file
+}: {
+  service: ReturnType<typeof getServiceSupabase>;
+  storeSlug: string;
+  file: File | null;
+}) {
+  if (!file || file.size === 0) {
+    return { image_url: null as string | null, image_path: null as string | null };
+  }
+
+  const extension = safeFileName(file.name).split('.').pop() || 'jpg';
+  const path = `${storeSlug}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
+  const bytes = await file.arrayBuffer();
+
+  const { error } = await service.storage
+    .from(BUCKET)
+    .upload(path, bytes, {
+      contentType: file.type || 'image/jpeg',
+      upsert: false
+    });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const { data } = service.storage.from(BUCKET).getPublicUrl(path);
+
+  return {
+    image_url: data.publicUrl,
+    image_path: path
+  };
+}
+
+async function removeImage(service: ReturnType<typeof getServiceSupabase>, imagePath?: string | null) {
+  if (!imagePath) return;
+  await service.storage.from(BUCKET).remove([imagePath]);
 }
 
 export async function GET(request: Request) {
@@ -111,9 +159,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ authenticated: false, error: 'Store not found.' }, { status: 200 });
   }
 
-  const safeStore = publicStorePayload(store);
-  const plan = await getSafePlanConfig(service, safeStore.business_type, safeStore.plan_type);
-  const usage = await getSafeUsage(service, safeStore.id);
+  const safeStore = storePayload(store);
+  const plan = await getPlan(service, safeStore.business_type, safeStore.plan_type);
+  const usage = await getUsage(service, safeStore.id);
 
   if (safeStore.status !== 'active') {
     return NextResponse.json({
@@ -197,102 +245,178 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const form = await request.formData();
-  const mode = String(form.get('mode') || 'create');
-  const slug = String(form.get('slug') || '').trim();
+  try {
+    const form = await request.formData();
+    const mode = String(form.get('mode') || 'create');
+    const slug = String(form.get('slug') || '').trim();
 
-  if (!slug) {
-    return NextResponse.json({ error: 'Missing slug.' }, { status: 400 });
-  }
-
-  const owned = await requireStoreOwnershipBySlug(slug);
-
-  if (!owned.ok) {
-    return NextResponse.json({ error: owned.reason }, { status: 403 });
-  }
-
-  if (mode === 'promo_banner') {
-    const promoBanner = String(form.get('promo_banner') || '').trim().slice(0, 180);
-
-    const { error } = await owned.supabase
-      .from('stores')
-      .update({ promo_banner: promoBanner })
-      .eq('id', owned.store.id);
-
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-    return NextResponse.json({ ok: true });
-  }
-
-  if (mode === 'delete') {
-    const productId = String(form.get('product_id') || '').trim();
-
-    if (!productId) {
-      return NextResponse.json({ error: 'Missing product id.' }, { status: 400 });
+    if (!slug) {
+      return NextResponse.json({ error: 'Missing slug.' }, { status: 400 });
     }
 
-    await deleteProductAndImage({ slug, storeId: owned.store.id, productId });
-    return NextResponse.json({ ok: true });
-  }
+    const owned = await requireStoreOwnershipBySlug(slug);
 
-  const name = String(form.get('name') || '').trim();
-  const price = Number(form.get('price') || 0);
-  const inStock = String(form.get('in_stock') || 'true') === 'true';
-  const imageFile = form.get('image') as File | null;
-  const isBestSeller = toBool(form.get('is_best_seller'));
-  const isFeatured = toBool(form.get('is_featured'));
-  const promoLabel = cleanPromoLabel(form.get('promo_label'));
-  const isCombo = toBool(form.get('is_combo'));
-  const description = String(form.get('description') || '').trim().slice(0, 250);
-  const displayOrder = toNumber(form.get('display_order'));
-
-  if (!name) {
-    return NextResponse.json({ error: 'Item name is required.' }, { status: 400 });
-  }
-
-  if (!Number.isFinite(price) || price < 0) {
-    return NextResponse.json({ error: 'Price must be valid.' }, { status: 400 });
-  }
-
-  if (mode === 'update') {
-    const productId = String(form.get('product_id') || '').trim();
-
-    if (!productId) {
-      return NextResponse.json({ error: 'Missing product id.' }, { status: 400 });
+    if (!owned.ok) {
+      return NextResponse.json({ error: owned.reason }, { status: 403 });
     }
 
-    await updateProductWithOptionalImage({
-      slug,
-      storeId: owned.store.id,
-      productId,
-      name,
-      price,
-      inStock,
-      imageFile,
-      isBestSeller,
-      isFeatured,
-      promoLabel,
-      isCombo,
-      description,
-      displayOrder
-    });
+    const service = getServiceSupabase();
+
+    if (mode === 'promo_banner') {
+      const promoBanner = String(form.get('promo_banner') || '').trim().slice(0, 180);
+
+      const { error } = await service
+        .from('stores')
+        .update({ promo_banner: promoBanner })
+        .eq('id', owned.store.id);
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json({ ok: true });
+    }
+
+    if (mode === 'delete') {
+      const productId = String(form.get('product_id') || '').trim();
+
+      if (!productId) {
+        return NextResponse.json({ error: 'Missing product id.' }, { status: 400 });
+      }
+
+      const { data: product } = await service
+        .from('products')
+        .select('image_path')
+        .eq('id', productId)
+        .eq('store_id', owned.store.id)
+        .maybeSingle();
+
+      await removeImage(service, product?.image_path);
+
+      const { error } = await service
+        .from('products')
+        .delete()
+        .eq('id', productId)
+        .eq('store_id', owned.store.id);
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json({ ok: true });
+    }
+
+    const name = String(form.get('name') || '').trim();
+    const price = Number(form.get('price') || 0);
+    const inStock = String(form.get('in_stock') || 'true') === 'true';
+    const imageFile = form.get('image') as File | null;
+    const isBestSeller = toBool(form.get('is_best_seller'));
+    const isFeatured = toBool(form.get('is_featured'));
+    const promoLabel = cleanPromoLabel(form.get('promo_label'));
+    const isCombo = toBool(form.get('is_combo'));
+    const description = String(form.get('description') || '').trim().slice(0, 250);
+    const displayOrder = toNumber(form.get('display_order'));
+
+    if (!name) {
+      return NextResponse.json({ error: 'Item name is required.' }, { status: 400 });
+    }
+
+    if (!Number.isFinite(price) || price < 0) {
+      return NextResponse.json({ error: 'Price must be valid.' }, { status: 400 });
+    }
+
+    const store = storePayload(owned.store);
+    const plan = await getPlan(service, store.business_type, store.plan_type);
+    const usage = await getUsage(service, store.id);
+
+    if (mode !== 'update' && usage.productCount >= plan.product_limit) {
+      return NextResponse.json({ error: 'Your item limit has been reached for this plan.' }, { status: 400 });
+    }
+
+    if (imageFile && imageFile.size > 0) {
+      const kb = Math.ceil(imageFile.size / 1024);
+
+      if (kb > plan.image_limit_kb) {
+        return NextResponse.json({ error: `Image is too large. Limit is ${plan.image_limit_kb}KB.` }, { status: 400 });
+      }
+
+      if (mode !== 'update' && usage.imageCount >= plan.photo_count_limit) {
+        return NextResponse.json({ error: 'Your image limit has been reached for this plan.' }, { status: 400 });
+      }
+    }
+
+    if (mode === 'update') {
+      const productId = String(form.get('product_id') || '').trim();
+
+      if (!productId) {
+        return NextResponse.json({ error: 'Missing product id.' }, { status: 400 });
+      }
+
+      const { data: currentProduct } = await service
+        .from('products')
+        .select('image_path')
+        .eq('id', productId)
+        .eq('store_id', store.id)
+        .maybeSingle();
+
+      const uploaded = await uploadImage({ service, storeSlug: slug, file: imageFile });
+
+      const updatePayload: Record<string, any> = {
+        name,
+        price,
+        in_stock: inStock,
+        is_best_seller: isBestSeller,
+        is_featured: isFeatured,
+        promo_label: promoLabel,
+        is_combo: isCombo,
+        description,
+        display_order: displayOrder
+      };
+
+      if (uploaded.image_url && uploaded.image_path) {
+        updatePayload.image_url = uploaded.image_url;
+        updatePayload.image_path = uploaded.image_path;
+      }
+
+      const { error } = await service
+        .from('products')
+        .update(updatePayload)
+        .eq('id', productId)
+        .eq('store_id', store.id);
+
+      if (error) {
+        await removeImage(service, uploaded.image_path);
+        return NextResponse.json({ error: error.message }, { status: 400 });
+      }
+
+      if (uploaded.image_path) {
+        await removeImage(service, currentProduct?.image_path);
+      }
+
+      return NextResponse.json({ ok: true });
+    }
+
+    const uploaded = await uploadImage({ service, storeSlug: slug, file: imageFile });
+
+    const { error } = await service
+      .from('products')
+      .insert({
+        store_id: store.id,
+        name,
+        price,
+        image_url: uploaded.image_url,
+        image_path: uploaded.image_path,
+        in_stock: inStock,
+        is_best_seller: isBestSeller,
+        is_featured: isFeatured,
+        promo_label: promoLabel,
+        is_combo: isCombo,
+        description,
+        display_order: displayOrder
+      });
+
+    if (error) {
+      await removeImage(service, uploaded.image_path);
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
 
     return NextResponse.json({ ok: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Could not save this item.';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  await createProductWithOptionalImage({
-    slug,
-    storeId: owned.store.id,
-    name,
-    price,
-    inStock,
-    imageFile,
-    isBestSeller,
-    isFeatured,
-    promoLabel,
-    isCombo,
-    description,
-    displayOrder
-  });
-
-  return NextResponse.json({ ok: true });
 }

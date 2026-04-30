@@ -1,18 +1,17 @@
-Apply these files:
+FINAL SAVE FIX
 
 1. Run this SQL in Supabase SQL Editor:
-   supabase/sales_features_patch.sql
+   supabase/product_sales_columns_fix.sql
 
-2. Replace project files:
+2. Replace:
    app/api/admin/product/route.ts
    app/store/[slug]/page.tsx
-   app/store/[slug]/store-view.tsx
 
 3. Push:
    git add .
-   git commit -m "Fix admin upload and public store page"
+   git commit -m "Fix product save upload and public menu"
    git push origin main
 
 4. Test:
-   /admin/[slug]
-   /store/[slug]
+   /admin/[slug] add item
+   /store/[slug] view item

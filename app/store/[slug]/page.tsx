@@ -79,7 +79,7 @@ export default async function PublicStorePage({ params }: PageProps) {
       <main className="store-page">
         <section className="store-hero">
           <h1>{store.name}</h1>
-          <p>Menu items could not load. Please try again later.</p>
+          <p>Menu items could not load. Please run the database update and try again.</p>
         </section>
       </main>
     );
