@@ -1,94 +1,103 @@
+import { unstable_cache } from 'next/cache';
 import { notFound } from 'next/navigation';
-import { getServiceSupabase } from '@/lib/app';
-import StoreView from './store-view';
+import { createClient } from '@supabase/supabase-js';
+import StoreClient from './StoreClient';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 300;
 
-type PageProps = {
-  params: Promise<{ slug: string }>;
+type StoreRow = {
+  id: string;
+  name: string;
+  slug: string;
+  owner_phone: string | null;
+  location: string | null;
+  status: string;
+  promo_banner?: string | null;
 };
 
-function normalizeStore(store: any) {
-  return {
-    id: store.id,
-    name: store.name || '',
-    slug: store.slug || '',
-    business_type: store.business_type || 'sari_sari',
-    plan_type: store.plan_type || 'basic',
-    location: store.location || '',
-    owner_phone: store.owner_phone || '',
-    promo_banner: store.promo_banner || ''
-  };
-}
+type ProductRow = {
+  id: string;
+  name: string;
+  price: number;
+  image_url: string | null;
+  in_stock: boolean;
+  is_best_seller: boolean;
+  is_featured: boolean;
+  promo_label: string;
+  is_combo: boolean;
+  description: string | null;
+  display_order: number;
+  created_at: string;
+};
 
-function normalizeProduct(product: any) {
-  return {
-    id: product.id,
-    name: product.name || '',
-    price: Number(product.price || 0),
-    image_url: product.image_url || null,
-    in_stock: Boolean(product.in_stock),
-    is_best_seller: Boolean(product.is_best_seller),
-    is_featured: Boolean(product.is_featured),
-    promo_label: product.promo_label || 'none',
-    is_combo: Boolean(product.is_combo),
-    description: product.description || '',
-    display_order: Number(product.display_order || 0),
-    created_at: product.created_at || ''
-  };
-}
+function getPublicSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
-export default async function PublicStorePage({ params }: PageProps) {
-  const { slug } = await params;
-  const supabase = getServiceSupabase();
-
-  const { data: store, error: storeError } = await supabase
-    .from('stores')
-    .select('id, name, slug, business_type, plan_type, location, owner_phone, status, promo_banner')
-    .eq('slug', slug)
-    .maybeSingle();
-
-  if (storeError) {
-    return (
-      <main className="store-page">
-        <section className="store-hero">
-          <h1>Menu is not available</h1>
-          <p>Please try again later.</p>
-        </section>
-      </main>
-    );
+  if (!url || !key) {
+    throw new Error('Missing public Supabase environment variables.');
   }
 
-  if (!store || store.status !== 'active') {
+  return createClient(url, key, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
+}
+
+const getCachedPublicStore = unstable_cache(
+  async (slug: string) => {
+    const supabase = getPublicSupabase();
+
+    const { data: store, error: storeError } = await supabase
+      .from('stores')
+      .select('id, name, slug, owner_phone, location, status, promo_banner')
+      .eq('slug', slug)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    if (storeError) {
+      throw new Error(storeError.message);
+    }
+
+    if (!store) {
+      return null;
+    }
+
+    const { data: products, error: productsError } = await supabase
+      .from('products')
+      .select(
+        'id, name, price, image_url, in_stock, is_best_seller, is_featured, promo_label, is_combo, description, display_order, created_at'
+      )
+      .eq('store_id', store.id)
+      .order('is_featured', { ascending: false })
+      .order('is_best_seller', { ascending: false })
+      .order('display_order', { ascending: true })
+      .order('created_at', { ascending: false });
+
+    if (productsError) {
+      throw new Error(productsError.message);
+    }
+
+    return {
+      store: store as StoreRow,
+      products: (products || []) as ProductRow[]
+    };
+  },
+  ['public-store-page-v2'],
+  {
+    revalidate: 300
+  }
+);
+
+export default async function PublicStorePage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const data = await getCachedPublicStore(slug);
+
+  if (!data) {
     notFound();
   }
 
-  const { data: products, error: productError } = await supabase
-    .from('products')
-    .select(
-      'id, name, price, image_url, in_stock, is_best_seller, is_featured, promo_label, is_combo, description, display_order, created_at'
-    )
-    .eq('store_id', store.id)
-    .order('is_featured', { ascending: false })
-    .order('is_best_seller', { ascending: false })
-    .order('display_order', { ascending: true })
-    .order('created_at', { ascending: false });
-
-  if (productError) {
-    return (
-      <main className="store-page">
-        <section className="store-hero">
-          <h1>{store.name}</h1>
-          <p>Menu items could not load. Please run the database update and try again.</p>
-        </section>
-      </main>
-    );
-  }
-
-  return (
-    <StoreView
-      store={normalizeStore(store)}
-      products={(products || []).map(normalizeProduct)}
-    />
-  );
+  return <StoreClient store={data.store} products={data.products} />;
 }

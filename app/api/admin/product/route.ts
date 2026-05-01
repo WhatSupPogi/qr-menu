@@ -135,14 +135,18 @@ async function uploadImage({
     return { image_url: null as string | null, image_path: null as string | null };
   }
 
+  if (file.type !== 'image/webp') {
+    throw new Error('Image must be optimized to WebP before upload.');
+  }
+
   const clean = safeFileName(file.name).replace(/\.[^/.]+$/, '');
-  const path = `${storeSlug}/${Date.now()}-${crypto.randomUUID()}-${clean || 'image'}`;
+  const path = `${storeSlug}/${Date.now()}-${crypto.randomUUID()}-${clean || 'image'}.webp`;
   const bytes = await file.arrayBuffer();
 
   const { error } = await service.storage
     .from(BUCKET)
     .upload(path, bytes, {
-      contentType: file.type || 'image/webp',
+      contentType: 'image/webp',
       upsert: false
     });
 
@@ -426,6 +430,10 @@ export async function POST(request: Request) {
 
     if (imageFile && imageFile.size > 0) {
       const kb = Math.ceil(imageFile.size / 1024);
+
+      if (imageFile.type !== 'image/webp') {
+        return NextResponse.json({ error: 'Image must be automatically optimized before upload.' }, { status: 400 });
+      }
 
       if (kb > plan.image_limit_kb) {
         return NextResponse.json({ error: `Image is too large after optimization. Limit is ${plan.image_limit_kb}KB.` }, { status: 400 });
