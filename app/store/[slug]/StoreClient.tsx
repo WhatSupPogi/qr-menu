@@ -31,6 +31,225 @@ function money(value: number) {
   return `₱${Number(value || 0).toFixed(2)}`;
 }
 
+const styles: Record<string, React.CSSProperties> = {
+  page: {
+    minHeight: '100vh',
+    background: '#f1f5f9',
+    color: '#0f172a',
+    padding: '16px',
+    fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif'
+  },
+  shell: {
+    width: '100%',
+    maxWidth: '1100px',
+    margin: '0 auto'
+  },
+  hero: {
+    background: '#0f172a',
+    color: 'white',
+    borderRadius: '28px',
+    padding: '24px',
+    boxShadow: '0 18px 40px rgba(15, 23, 42, 0.18)'
+  },
+  eyebrow: {
+    margin: 0,
+    color: '#bae6fd',
+    fontSize: '12px',
+    fontWeight: 800,
+    letterSpacing: '0.22em',
+    textTransform: 'uppercase'
+  },
+  title: {
+    margin: '12px 0 0',
+    fontSize: 'clamp(34px, 9vw, 56px)',
+    lineHeight: 1,
+    fontWeight: 900,
+    letterSpacing: '-0.04em'
+  },
+  meta: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '8px',
+    marginTop: '16px'
+  },
+  metaPill: {
+    background: 'rgba(255,255,255,0.12)',
+    color: '#e2e8f0',
+    borderRadius: '999px',
+    padding: '8px 12px',
+    fontSize: '14px',
+    fontWeight: 700
+  },
+  promo: {
+    marginTop: '18px',
+    background: '#0284c7',
+    borderRadius: '18px',
+    padding: '14px 16px',
+    color: '#ffffff',
+    fontWeight: 900,
+    fontSize: '17px',
+    boxShadow: '0 10px 25px rgba(2,132,199,0.22)'
+  },
+  searchBox: {
+    position: 'sticky',
+    top: 0,
+    zIndex: 10,
+    marginTop: '16px',
+    background: 'rgba(255,255,255,0.96)',
+    border: '1px solid #e2e8f0',
+    borderRadius: '22px',
+    padding: '12px',
+    boxShadow: '0 8px 20px rgba(15,23,42,0.08)',
+    backdropFilter: 'blur(8px)'
+  },
+  searchInput: {
+    width: '100%',
+    boxSizing: 'border-box',
+    border: '1px solid #cbd5e1',
+    borderRadius: '18px',
+    padding: '15px 16px',
+    fontSize: '18px',
+    fontWeight: 700,
+    outline: 'none',
+    background: '#ffffff',
+    color: '#0f172a'
+  },
+  grid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))',
+    gap: '16px',
+    marginTop: '18px'
+  },
+  empty: {
+    background: '#ffffff',
+    border: '1px dashed #cbd5e1',
+    borderRadius: '24px',
+    padding: '32px',
+    textAlign: 'center',
+    color: '#64748b',
+    fontWeight: 800
+  },
+  card: {
+    background: '#ffffff',
+    border: '1px solid #e2e8f0',
+    borderRadius: '26px',
+    overflow: 'hidden',
+    boxShadow: '0 10px 28px rgba(15,23,42,0.08)'
+  },
+  cardOut: {
+    opacity: 0.58
+  },
+  imageWrap: {
+    position: 'relative',
+    width: '100%',
+    aspectRatio: '4 / 3',
+    background: '#e2e8f0',
+    overflow: 'hidden'
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    display: 'block'
+  },
+  noImage: {
+    width: '100%',
+    height: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#64748b',
+    fontWeight: 800
+  },
+  overlay: {
+    position: 'absolute',
+    inset: 0,
+    background: 'rgba(15,23,42,0.68)',
+    color: '#ffffff',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '18px',
+    fontWeight: 900
+  },
+  body: {
+    padding: '16px'
+  },
+  badgeRow: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '8px',
+    marginBottom: '12px'
+  },
+  badge: {
+    borderRadius: '999px',
+    padding: '7px 10px',
+    fontSize: '11px',
+    lineHeight: 1,
+    fontWeight: 900,
+    letterSpacing: '0.03em'
+  },
+  featuredBadge: {
+    background: '#0f172a',
+    color: '#ffffff'
+  },
+  bestBadge: {
+    background: '#fef3c7',
+    color: '#92400e'
+  },
+  promoBadge: {
+    background: '#ffe4e6',
+    color: '#be123c'
+  },
+  comboBadge: {
+    background: '#e0f2fe',
+    color: '#0369a1'
+  },
+  productHead: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: '12px'
+  },
+  productName: {
+    margin: 0,
+    fontSize: '22px',
+    lineHeight: 1.12,
+    fontWeight: 900,
+    letterSpacing: '-0.02em'
+  },
+  price: {
+    flexShrink: 0,
+    background: '#f1f5f9',
+    borderRadius: '16px',
+    padding: '10px 12px',
+    fontSize: '18px',
+    fontWeight: 900
+  },
+  description: {
+    margin: '12px 0 0',
+    color: '#475569',
+    fontSize: '15px',
+    lineHeight: 1.45
+  },
+  stock: {
+    display: 'inline-flex',
+    marginTop: '14px',
+    borderRadius: '999px',
+    padding: '7px 10px',
+    fontSize: '12px',
+    fontWeight: 900
+  },
+  inStock: {
+    background: '#dcfce7',
+    color: '#15803d'
+  },
+  outStock: {
+    background: '#ffe4e6',
+    color: '#be123c'
+  }
+};
+
 export default function StoreClient({
   store,
   products
@@ -49,128 +268,97 @@ export default function StoreClient({
   }, [products, search]);
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-5 text-slate-950">
-      <section className="mx-auto max-w-5xl">
-        <div className="rounded-3xl bg-slate-950 p-6 text-white shadow-lg">
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-sky-200">QR Menu</p>
-          <h1 className="mt-3 text-4xl font-black leading-tight tracking-tight sm:text-5xl">
-            {store.name}
-          </h1>
+    <main style={styles.page}>
+      <section style={styles.shell}>
+        <header style={styles.hero}>
+          <p style={styles.eyebrow}>QR Menu</p>
+          <h1 style={styles.title}>{store.name}</h1>
 
-          <div className="mt-4 flex flex-wrap gap-2 text-sm text-slate-200">
-            {store.location ? (
-              <span className="rounded-full bg-white/10 px-3 py-1">
-                {store.location}
-              </span>
-            ) : null}
-            {store.owner_phone ? (
-              <span className="rounded-full bg-white/10 px-3 py-1">
-                {store.owner_phone}
-              </span>
-            ) : null}
+          <div style={styles.meta}>
+            {store.location ? <span style={styles.metaPill}>{store.location}</span> : null}
+            {store.owner_phone ? <span style={styles.metaPill}>{store.owner_phone}</span> : null}
           </div>
 
           {store.promo_banner ? (
-            <div className="mt-5 rounded-2xl bg-sky-500 px-4 py-3 text-base font-black text-white shadow">
-              {store.promo_banner}
-            </div>
+            <div style={styles.promo}>{store.promo_banner}</div>
           ) : null}
-        </div>
+        </header>
 
-        <div className="sticky top-0 z-10 mt-4 rounded-2xl bg-white/95 p-3 shadow-sm backdrop-blur">
-          <label htmlFor="menu-search" className="sr-only">
-            Search items
-          </label>
+        <section style={styles.searchBox}>
           <input
-            id="menu-search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search by item name"
             autoComplete="off"
-            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-4 text-lg font-semibold outline-none ring-sky-300 transition focus:ring-4"
+            style={styles.searchInput}
           />
-        </div>
+        </section>
 
-        <section className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <section style={styles.grid}>
           {filteredProducts.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500 sm:col-span-2 lg:col-span-3">
-              No matching items found.
-            </div>
+            <div style={styles.empty}>No matching items found.</div>
           ) : (
             filteredProducts.map((product) => (
               <article
-                className={`overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-200 ${
-                  !product.in_stock ? 'opacity-60' : ''
-                }`}
                 key={product.id}
+                style={{
+                  ...styles.card,
+                  ...(!product.in_stock ? styles.cardOut : {})
+                }}
               >
-                <div className="relative aspect-[4/3] bg-slate-200">
+                <div style={styles.imageWrap}>
                   {product.image_url ? (
                     <img
                       src={product.image_url}
                       alt={product.name}
-                      className="h-full w-full object-cover"
+                      style={styles.image}
                       loading="lazy"
                       decoding="async"
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-sm font-semibold text-slate-500">
-                      No Image
-                    </div>
+                    <div style={styles.noImage}>No Image</div>
                   )}
 
                   {!product.in_stock ? (
-                    <div className="absolute inset-0 flex items-center justify-center bg-slate-950/65 text-lg font-black text-white">
-                      Out of Stock
-                    </div>
+                    <div style={styles.overlay}>Out of Stock</div>
                   ) : null}
                 </div>
 
-                <div className="p-4">
-                  <div className="mb-3 flex flex-wrap gap-2">
+                <div style={styles.body}>
+                  <div style={styles.badgeRow}>
                     {product.is_featured ? (
-                      <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white">
-                        FEATURED
-                      </span>
+                      <span style={{ ...styles.badge, ...styles.featuredBadge }}>FEATURED</span>
                     ) : null}
+
                     {product.is_best_seller ? (
-                      <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">
-                        BEST SELLER
-                      </span>
+                      <span style={{ ...styles.badge, ...styles.bestBadge }}>BEST SELLER</span>
                     ) : null}
+
                     {product.promo_label && product.promo_label !== 'none' ? (
-                      <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-black text-rose-700">
+                      <span style={{ ...styles.badge, ...styles.promoBadge }}>
                         {product.promo_label}
                       </span>
                     ) : null}
+
                     {product.is_combo ? (
-                      <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-black text-sky-700">
-                        COMBO
-                      </span>
+                      <span style={{ ...styles.badge, ...styles.comboBadge }}>COMBO</span>
                     ) : null}
                   </div>
 
-                  <div className="flex items-start justify-between gap-3">
-                    <h2 className="text-xl font-black leading-tight">
-                      {product.name}
-                    </h2>
-                    <strong className="shrink-0 rounded-2xl bg-slate-100 px-3 py-2 text-lg font-black">
-                      {money(product.price)}
-                    </strong>
+                  <div style={styles.productHead}>
+                    <h2 style={styles.productName}>{product.name}</h2>
+                    <strong style={styles.price}>{money(product.price)}</strong>
                   </div>
 
                   {product.description ? (
-                    <p className="mt-3 text-sm leading-relaxed text-slate-600">
-                      {product.description}
-                    </p>
+                    <p style={styles.description}>{product.description}</p>
                   ) : null}
 
                   <div
-                    className={`mt-4 inline-flex rounded-full px-3 py-1 text-xs font-black ${
-                      product.in_stock
-                        ? 'bg-emerald-100 text-emerald-700'
-                        : 'bg-rose-100 text-rose-700'
-                    }`}
+                    style={{
+                      ...styles.stock,
+                      ...(product.in_stock ? styles.inStock : styles.outStock)
+                    }}
                   >
                     {product.in_stock ? 'In Stock' : 'Out of Stock'}
                   </div>

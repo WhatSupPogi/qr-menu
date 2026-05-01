@@ -1,24 +1,18 @@
-QR Menu public page cache + design fix
+QR Menu public page inline style fix
 
-Replace these files:
-1. app/store/[slug]/page.tsx
-2. app/store/[slug]/StoreClient.tsx
-3. app/api/admin/product/route.ts
+Replace:
+app/store/[slug]/StoreClient.tsx
 
-What this fixes:
-- Public page design looked broken because the previous patch used CSS class names that did not exist in the project.
-- Public page now uses Tailwind classes directly, so it does not depend on missing custom CSS.
-- Uploaded/edited/deleted products now call revalidatePath('/store/[slug]') so the public store page refreshes after admin changes.
-- Image lazy loading is kept.
-- Search stays client-side.
-- Backend still blocks non-WebP original large images.
+Why:
+The previous public page used Tailwind class names, but the live page is not applying those styles correctly.
+This version uses inline React styles, so it will display correctly even if Tailwind/global CSS is not working.
 
 After replacing:
 npm run build
 
-If successful:
+Then:
 git add .
-git commit -m "Fix public menu design and refresh cache after product changes"
+git commit -m "Fix public menu page with inline styles"
 git push origin main
 
 Test:
