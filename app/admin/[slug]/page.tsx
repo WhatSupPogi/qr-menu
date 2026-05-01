@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getBrowserSupabase } from '@/lib/client';
 
 type StoreInfo = {
@@ -66,9 +66,110 @@ const DEFAULT_PLAN: PlanInfo = {
   photo_count_limit: 20
 };
 
+const MAX_IMAGE_WIDTH = 800;
+
 function formatPlanName(plan?: string) {
   if (!plan) return 'Basic';
   return plan.charAt(0).toUpperCase() + plan.slice(1);
+}
+
+function getAutoImageLimitKb(businessType?: string, planLimit?: number) {
+  if (businessType === 'bar') return 500;
+  if (businessType === 'restaurant') return 300;
+  if (businessType === 'sari_sari') return 100;
+  return planLimit || 100;
+}
+
+function readImage(file: File) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    const url = URL.createObjectURL(file);
+
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(image);
+    };
+
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Could not read image.'));
+    };
+
+    image.src = url;
+  });
+}
+
+function canvasToWebp(canvas: HTMLCanvasElement, quality: number) {
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error('Could not optimize image.'));
+          return;
+        }
+
+        resolve(blob);
+      },
+      'image/webp',
+      quality
+    );
+  });
+}
+
+async function optimizeImage(file: File, maxKb: number) {
+  const image = await readImage(file);
+
+  let width = image.width;
+  let height = image.height;
+
+  if (width > MAX_IMAGE_WIDTH) {
+    const ratio = MAX_IMAGE_WIDTH / width;
+    width = Math.round(width * ratio);
+    height = Math.round(height * ratio);
+  }
+
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+
+  if (!context) {
+    throw new Error('Could not optimize image.');
+  }
+
+  canvas.width = width;
+  canvas.height = height;
+  context.drawImage(image, 0, 0, width, height);
+
+  let quality = 0.82;
+  let blob = await canvasToWebp(canvas, quality);
+
+  while (blob.size > maxKb * 1024 && quality > 0.28) {
+    quality -= 0.07;
+    blob = await canvasToWebp(canvas, quality);
+  }
+
+  if (blob.size > maxKb * 1024) {
+    const shrink = Math.sqrt((maxKb * 1024) / blob.size) * 0.9;
+    width = Math.max(320, Math.round(width * shrink));
+    height = Math.max(240, Math.round(height * shrink));
+
+    canvas.width = width;
+    canvas.height = height;
+    context.drawImage(image, 0, 0, width, height);
+
+    quality = 0.7;
+    blob = await canvasToWebp(canvas, quality);
+
+    while (blob.size > maxKb * 1024 && quality > 0.22) {
+      quality -= 0.06;
+      blob = await canvasToWebp(canvas, quality);
+    }
+  }
+
+  const baseName = file.name.replace(/\.[^/.]+$/, '').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+  return new File([blob], `${baseName || 'menu-image'}.webp`, {
+    type: 'image/webp',
+    lastModified: Date.now()
+  });
 }
 
 export default function StoreAdminPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -84,6 +185,10 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
   const [productSearch, setProductSearch] = useState('');
   const [saving, setSaving] = useState(false);
   const [bannerText, setBannerText] = useState('');
+  const [optimizedImage, setOptimizedImage] = useState<File | null>(null);
+  const [imageMessage, setImageMessage] = useState('Image will be automatically optimized.');
+  const galleryInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const supabase = useMemo(() => getBrowserSupabase(), []);
 
   useEffect(() => {
@@ -129,14 +234,48 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
     setMessage('Signed out.');
     setEditingId(null);
     setFormValues(EMPTY_FORM);
+    clearImage();
     await load();
+  }
+
+  function clearImage() {
+    setOptimizedImage(null);
+    setImageMessage('Image will be automatically optimized.');
+    if (galleryInputRef.current) galleryInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
   }
 
   function resetForm() {
     setEditingId(null);
     setFormValues(EMPTY_FORM);
-    const fileInput = document.getElementById('image') as HTMLInputElement | null;
-    if (fileInput) fileInput.value = '';
+    clearImage();
+  }
+
+  async function handleImageFile(file?: File | null) {
+    setError('');
+    setMessage('');
+
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setError('Please choose an image file.');
+      clearImage();
+      return;
+    }
+
+    const limitKb = getAutoImageLimitKb(data?.store?.business_type, data?.plan?.image_limit_kb);
+    setImageMessage('Optimizing image automatically...');
+
+    try {
+      const optimized = await optimizeImage(file, limitKb);
+      setOptimizedImage(optimized);
+      setImageMessage(
+        `Image optimized successfully. Final size: ${(optimized.size / 1024).toFixed(1)}KB WebP. Original size: ${(file.size / 1024).toFixed(1)}KB.`
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not optimize image.');
+      clearImage();
+    }
   }
 
   async function saveBanner(e: React.FormEvent) {
@@ -172,6 +311,11 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
     form.set('mode', editingId ? 'update' : 'create');
     if (editingId) form.set('product_id', editingId);
 
+    form.delete('image');
+    if (optimizedImage) {
+      form.set('image', optimizedImage);
+    }
+
     const res = await fetch('/api/admin/product', { method: 'POST', body: form });
     const json = await res.json();
 
@@ -182,8 +326,9 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
       return;
     }
 
+    const sizeText = optimizedImage ? ` Final image size: ${(optimizedImage.size / 1024).toFixed(1)}KB.` : '';
     resetForm();
-    setMessage(editingId ? 'Item updated successfully.' : 'Item added successfully.');
+    setMessage(`${editingId ? 'Item updated successfully.' : 'Item added successfully.'}${sizeText}`);
     await load();
   }
 
@@ -200,6 +345,7 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
       is_best_seller: Boolean(product.is_best_seller),
       is_combo: Boolean(product.is_combo)
     });
+    clearImage();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -292,7 +438,7 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
   const plan = data.plan || DEFAULT_PLAN;
   const store = data.store;
   const productLimit = Number(plan.product_limit || DEFAULT_PLAN.product_limit);
-  const imageLimitKb = Number(plan.image_limit_kb || DEFAULT_PLAN.image_limit_kb);
+  const imageLimitKb = getAutoImageLimitKb(store?.business_type, Number(plan.image_limit_kb || DEFAULT_PLAN.image_limit_kb));
   const imageLimit = Number(plan.photo_count_limit || DEFAULT_PLAN.photo_count_limit);
   const productCount = Number(data.usage?.productCount || 0);
   const imageCount = Number(data.usage?.imageCount || 0);
@@ -374,7 +520,7 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
       </section>
 
       <div className="notice">
-        Image limit: {imageLimitKb}KB. Images are saved as WebP. Old files are cleaned automatically.
+        Image will be automatically optimized. Max width: 800px. Images are saved as WebP. Limit: {imageLimitKb}KB.
       </div>
 
       {message ? <div className="success">{message}</div> : null}
@@ -443,9 +589,45 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
             </select>
           </div>
 
-          <div>
-            <label>Upload Image</label>
-            <input id="image" name="image" className="input" type="file" accept="image/*" />
+          <div style={{ gridColumn: '1 / -1' }}>
+            <label>Image</label>
+
+            <div className="image-actions">
+              <button className="button secondary fit-button" type="button" onClick={() => galleryInputRef.current?.click()}>
+                Upload from Gallery
+              </button>
+
+              <button className="button secondary fit-button" type="button" onClick={() => cameraInputRef.current?.click()}>
+                Take Photo
+              </button>
+
+              {optimizedImage ? (
+                <button className="button secondary fit-button" type="button" onClick={clearImage}>
+                  Clear Image
+                </button>
+              ) : null}
+            </div>
+
+            <input
+              ref={galleryInputRef}
+              type="file"
+              accept="image/*"
+              onChange={(e) => handleImageFile(e.target.files?.[0])}
+              style={{ display: 'none' }}
+            />
+
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={(e) => handleImageFile(e.target.files?.[0])}
+              style={{ display: 'none' }}
+            />
+
+            <div className="notice" style={{ marginTop: 10 }}>
+              {imageMessage}
+            </div>
           </div>
 
           <div>
@@ -599,6 +781,15 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
           </div>
         )}
       </section>
+
+      <style jsx>{`
+        .image-actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+          margin-top: 8px;
+        }
+      `}</style>
     </main>
   );
 }

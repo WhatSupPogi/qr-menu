@@ -1,17 +1,16 @@
-FINAL SAVE FIX
+Auto image optimization and camera capture patch
 
-1. Run this SQL in Supabase SQL Editor:
-   supabase/product_sales_columns_fix.sql
+Changed file:
+app/admin/[slug]/page.tsx
 
-2. Replace:
-   app/api/admin/product/route.ts
-   app/store/[slug]/page.tsx
+Apply:
+git add .
+git commit -m "Add automatic image optimization and camera capture"
+git push origin main
 
-3. Push:
-   git add .
-   git commit -m "Fix product save upload and public menu"
-   git push origin main
-
-4. Test:
-   /admin/[slug] add item
-   /store/[slug] view item
+Test:
+1. Open /admin/[slug]
+2. Click Upload from Gallery
+3. Try a large image
+4. Confirm final WebP KB message appears
+5. Click Take Photo on mobile
