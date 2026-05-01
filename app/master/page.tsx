@@ -80,7 +80,8 @@ export default async function MasterPage({
 
             <label className="field">
               <span>Plan</span>
-              <select name="plan_type" defaultValue="basic">
+              <select name="plan_type" defaultValue="free">
+                <option value="free">Free</option>
                 <option value="basic">Basic</option>
                 <option value="standard">Standard</option>
                 <option value="plus">Plus</option>
@@ -238,6 +239,7 @@ export default async function MasterPage({
                           <input type="hidden" name="mode" value="plan" />
                           <input type="hidden" name="store_id" value={store.id} />
                           <select name="plan_type" defaultValue={store.plan_type}>
+                            <option value="free">Free</option>
                             <option value="basic">Basic</option>
                             <option value="standard">Standard</option>
                             <option value="plus">Plus</option>
