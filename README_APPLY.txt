@@ -1,16 +1,16 @@
-Auto image optimization and camera capture patch
+QR Menu monetization + onboarding + payment update
 
-Changed file:
-app/admin/[slug]/page.tsx
+This package includes:
+- supabase/monetization_update.sql
+- app/api/admin/payment/route.ts
+- app/api/master/payment/route.ts
 
-Apply:
-git add .
-git commit -m "Add automatic image optimization and camera capture"
-git push origin main
+Run SQL first, then add route files.
 
-Test:
-1. Open /admin/[slug]
-2. Click Upload from Gallery
-3. Try a large image
-4. Confirm final WebP KB message appears
-5. Click Take Photo on mobile
+Important: You still need to add UI buttons/forms to:
+- app/admin/[slug]/page.tsx
+- app/master/page.tsx
+- app/api/admin/product/route.ts
+- app/api/master/store/route.ts
+
+This package safely adds the database and payment API foundation without rebuilding your app.
