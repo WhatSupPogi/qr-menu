@@ -85,7 +85,7 @@ const getCachedPublicStore = unstable_cache(
       products: (products || []) as ProductRow[]
     };
   },
-  ['public-store-page-v2'],
+  ['public-store-page-v3'],
   {
     revalidate: 300
   }

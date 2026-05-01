@@ -1,3 +1,4 @@
+import { revalidatePath } from 'next/cache';
 import { NextResponse } from 'next/server';
 import {
   getServerSupabase,
@@ -28,6 +29,10 @@ function safeFileName(name: string) {
     .replace(/[^a-z0-9.]+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
+}
+
+function refreshStorePage(slug: string) {
+  revalidatePath(`/store/${slug}`);
 }
 
 function fallbackPlanConfig(businessType: string, planType: string) {
@@ -327,6 +332,8 @@ export async function POST(request: Request) {
         .eq('id', owned.store.id);
 
       if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+      refreshStorePage(slug);
       return NextResponse.json({ ok: true });
     }
 
@@ -361,6 +368,8 @@ export async function POST(request: Request) {
       );
 
       if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+      refreshStorePage(slug);
       return NextResponse.json({ ok: true, count: items.length });
     }
 
@@ -387,6 +396,8 @@ export async function POST(request: Request) {
         .eq('store_id', owned.store.id);
 
       if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+      refreshStorePage(slug);
       return NextResponse.json({ ok: true });
     }
 
@@ -492,6 +503,7 @@ export async function POST(request: Request) {
         await removeImage(service, currentProduct?.image_path);
       }
 
+      refreshStorePage(slug);
       return NextResponse.json({ ok: true });
     }
 
@@ -519,6 +531,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
+    refreshStorePage(slug);
     return NextResponse.json({ ok: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Could not save this item.';

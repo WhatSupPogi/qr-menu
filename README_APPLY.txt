@@ -1,27 +1,28 @@
-QR Menu 1000-store performance patch
+QR Menu public page cache + design fix
 
-Files:
-1. supabase/performance_indexes.sql
-2. app/store/[slug]/page.tsx
-3. app/store/[slug]/StoreClient.tsx
-4. app/api/admin/product/route.ts
+Replace these files:
+1. app/store/[slug]/page.tsx
+2. app/store/[slug]/StoreClient.tsx
+3. app/api/admin/product/route.ts
 
-What this does:
-- Public store page uses Next.js server cache with 5-minute revalidation.
-- Public products load with minimal DB calls.
-- Product search remains client-side.
-- Product images use lazy loading and async decoding.
-- Backend rejects non-WebP images so original large files are not stored.
-- Database indexes are added for 1000-store readiness.
+What this fixes:
+- Public page design looked broken because the previous patch used CSS class names that did not exist in the project.
+- Public page now uses Tailwind classes directly, so it does not depend on missing custom CSS.
+- Uploaded/edited/deleted products now call revalidatePath('/store/[slug]') so the public store page refreshes after admin changes.
+- Image lazy loading is kept.
+- Search stays client-side.
+- Backend still blocks non-WebP original large images.
 
-Apply:
-1. Run supabase/performance_indexes.sql in Supabase SQL Editor.
-2. Replace the files.
-3. Run npm run build.
-4. Push to GitHub.
-
-Commands:
+After replacing:
 npm run build
+
+If successful:
 git add .
-git commit -m "Improve public page caching and image cost controls"
+git commit -m "Fix public menu design and refresh cache after product changes"
 git push origin main
+
+Test:
+1. Add an item with image in store admin.
+2. Open the public store page.
+3. Confirm the new item appears.
+4. Confirm design is card-based and mobile-friendly.
