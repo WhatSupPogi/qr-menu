@@ -31,14 +31,22 @@ function safeFileName(name: string) {
 }
 
 function fallbackPlanConfig(businessType: string, planType: string) {
+  if (planType === 'free') {
+    return {
+      product_limit: 10,
+      image_limit_kb: businessType === 'restaurant' ? 300 : 100,
+      photo_count_limit: 3
+    };
+  }
+
   if (businessType === 'restaurant') {
-    if (planType === 'standard') return { product_limit: 100, image_limit_kb: 500, photo_count_limit: 100 };
-    if (planType === 'plus') return { product_limit: 300, image_limit_kb: 700, photo_count_limit: 300 };
+    if (planType === 'standard') return { product_limit: 100, image_limit_kb: 300, photo_count_limit: 100 };
+    if (planType === 'plus') return { product_limit: 300, image_limit_kb: 300, photo_count_limit: 300 };
     return { product_limit: 50, image_limit_kb: 300, photo_count_limit: 50 };
   }
 
   if (planType === 'standard') return { product_limit: 100, image_limit_kb: 100, photo_count_limit: 40 };
-  if (planType === 'plus') return { product_limit: 300, image_limit_kb: 150, photo_count_limit: 120 };
+  if (planType === 'plus') return { product_limit: 300, image_limit_kb: 100, photo_count_limit: 120 };
   return { product_limit: 50, image_limit_kb: 100, photo_count_limit: 20 };
 }
 
@@ -85,13 +93,33 @@ function storePayload(store: any) {
     slug: store.slug,
     name: store.name || '',
     business_type: store.business_type || 'sari_sari',
-    plan_type: store.plan_type || 'basic',
+    plan_type: store.plan_type || 'free',
     status: store.status || 'active',
     owner_name: store.owner_name || '',
     owner_phone: store.owner_phone || '',
     location: store.location || '',
     promo_banner: store.promo_banner || ''
   };
+}
+
+function checkLockedFeatures({
+  planType,
+  isBestSeller,
+  isFeatured,
+  promoLabel
+}: {
+  planType: string;
+  isBestSeller: boolean;
+  isFeatured: boolean;
+  promoLabel: string;
+}) {
+  if (planType !== 'free') return null;
+
+  if (isBestSeller || isFeatured || promoLabel !== 'none') {
+    return 'Upgrade your plan to unlock more features and increase your sales.';
+  }
+
+  return null;
 }
 
 async function uploadImage({
@@ -107,14 +135,14 @@ async function uploadImage({
     return { image_url: null as string | null, image_path: null as string | null };
   }
 
-  const extension = safeFileName(file.name).split('.').pop() || 'jpg';
-  const path = `${storeSlug}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
+  const clean = safeFileName(file.name).replace(/\.[^/.]+$/, '');
+  const path = `${storeSlug}/${Date.now()}-${crypto.randomUUID()}-${clean || 'image'}`;
   const bytes = await file.arrayBuffer();
 
   const { error } = await service.storage
     .from(BUCKET)
     .upload(path, bytes, {
-      contentType: file.type || 'image/jpeg',
+      contentType: file.type || 'image/webp',
       upsert: false
     });
 
@@ -133,6 +161,22 @@ async function uploadImage({
 async function removeImage(service: ReturnType<typeof getServiceSupabase>, imagePath?: string | null) {
   if (!imagePath) return;
   await service.storage.from(BUCKET).remove([imagePath]);
+}
+
+function parseBulkItems(text: string) {
+  return text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const parts = line.split(',');
+      const priceText = parts.pop()?.trim() || '';
+      const name = parts.join(',').trim();
+      const price = Number(priceText);
+
+      return { name, price };
+    })
+    .filter((item) => item.name && Number.isFinite(item.price) && item.price >= 0);
 }
 
 export async function GET(request: Request) {
@@ -224,6 +268,13 @@ export async function GET(request: Request) {
     .order('display_order', { ascending: true })
     .order('created_at', { ascending: false });
 
+  const { data: paymentRequests } = await service
+    .from('payment_requests')
+    .select('id, plan_type, payment_method, reference_number, proof_image_url, status, created_at')
+    .eq('store_id', safeStore.id)
+    .order('created_at', { ascending: false })
+    .limit(5);
+
   if (productsError) {
     return NextResponse.json({
       authenticated: true,
@@ -240,7 +291,8 @@ export async function GET(request: Request) {
     adminUser,
     plan,
     usage,
-    products: products || []
+    products: products || [],
+    paymentRequests: paymentRequests || []
   });
 }
 
@@ -272,6 +324,40 @@ export async function POST(request: Request) {
 
       if (error) return NextResponse.json({ error: error.message }, { status: 400 });
       return NextResponse.json({ ok: true });
+    }
+
+    if (mode === 'bulk_create') {
+      const store = storePayload(owned.store);
+      const plan = await getPlan(service, store.business_type, store.plan_type);
+      const usage = await getUsage(service, store.id);
+      const bulkText = String(form.get('bulk_items') || '');
+      const items = parseBulkItems(bulkText);
+
+      if (items.length === 0) {
+        return NextResponse.json({ error: 'Please add items using: Item name, price' }, { status: 400 });
+      }
+
+      if (usage.productCount + items.length > plan.product_limit) {
+        return NextResponse.json({ error: 'Upgrade your plan to add more items.' }, { status: 400 });
+      }
+
+      const { error } = await service.from('products').insert(
+        items.map((item, index) => ({
+          store_id: store.id,
+          name: item.name,
+          price: item.price,
+          in_stock: true,
+          display_order: usage.productCount + index + 1,
+          promo_label: 'none',
+          is_best_seller: false,
+          is_featured: false,
+          is_combo: false,
+          description: ''
+        }))
+      );
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json({ ok: true, count: items.length });
     }
 
     if (mode === 'delete') {
@@ -323,19 +409,30 @@ export async function POST(request: Request) {
     const plan = await getPlan(service, store.business_type, store.plan_type);
     const usage = await getUsage(service, store.id);
 
+    const lockedMessage = checkLockedFeatures({
+      planType: store.plan_type,
+      isBestSeller,
+      isFeatured,
+      promoLabel
+    });
+
+    if (lockedMessage) {
+      return NextResponse.json({ error: lockedMessage }, { status: 400 });
+    }
+
     if (mode !== 'update' && usage.productCount >= plan.product_limit) {
-      return NextResponse.json({ error: 'Your item limit has been reached for this plan.' }, { status: 400 });
+      return NextResponse.json({ error: 'Upgrade your plan to add more items.' }, { status: 400 });
     }
 
     if (imageFile && imageFile.size > 0) {
       const kb = Math.ceil(imageFile.size / 1024);
 
       if (kb > plan.image_limit_kb) {
-        return NextResponse.json({ error: `Image is too large. Limit is ${plan.image_limit_kb}KB.` }, { status: 400 });
+        return NextResponse.json({ error: `Image is too large after optimization. Limit is ${plan.image_limit_kb}KB.` }, { status: 400 });
       }
 
       if (mode !== 'update' && usage.imageCount >= plan.photo_count_limit) {
-        return NextResponse.json({ error: 'Your image limit has been reached for this plan.' }, { status: 400 });
+        return NextResponse.json({ error: 'Upgrade your plan to add more images.' }, { status: 400 });
       }
     }
 

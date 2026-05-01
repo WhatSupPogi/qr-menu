@@ -1,24 +1,28 @@
 import { NextResponse } from 'next/server';
 import { getServiceSupabase, requireMasterSession, writeMasterAction } from '@/lib/app';
 
-const text = (v: FormDataEntryValue | null) => String(v || '').trim();
+function cleanText(value: FormDataEntryValue | null) {
+  return String(value || '').trim();
+}
 
 export async function POST(request: Request) {
   await requireMasterSession();
+
   const form = await request.formData();
-  const action = text(form.get('action'));
-  const request_id = text(form.get('request_id'));
+  const action = cleanText(form.get('action'));
+  const requestId = cleanText(form.get('request_id'));
   const origin = new URL(request.url).origin;
 
-  if (!request_id || !['approve', 'reject'].includes(action)) {
+  if (!requestId || !['approve', 'reject'].includes(action)) {
     return NextResponse.json({ error: 'Invalid payment action.' }, { status: 400 });
   }
 
   const service = getServiceSupabase();
+
   const { data: payment, error: readError } = await service
     .from('payment_requests')
     .select('id, store_id, plan_type, status')
-    .eq('id', request_id)
+    .eq('id', requestId)
     .maybeSingle();
 
   if (readError || !payment) {
@@ -26,19 +30,50 @@ export async function POST(request: Request) {
   }
 
   if (action === 'approve') {
-    const storeUpdate = await service.from('stores').update({ plan_type: payment.plan_type, status: 'active' }).eq('id', payment.store_id);
-    if (storeUpdate.error) return NextResponse.json({ error: storeUpdate.error.message }, { status: 400 });
+    const { error: storeError } = await service
+      .from('stores')
+      .update({
+        plan_type: payment.plan_type,
+        status: 'active'
+      })
+      .eq('id', payment.store_id);
 
-    const paymentUpdate = await service.from('payment_requests').update({ status: 'approved' }).eq('id', request_id);
-    if (paymentUpdate.error) return NextResponse.json({ error: paymentUpdate.error.message }, { status: 400 });
+    if (storeError) {
+      return NextResponse.json({ error: storeError.message }, { status: 400 });
+    }
 
-    await writeMasterAction('approve_payment_request', { request_id, store_id: payment.store_id, plan_type: payment.plan_type });
+    const { error: paymentError } = await service
+      .from('payment_requests')
+      .update({ status: 'approved' })
+      .eq('id', requestId);
+
+    if (paymentError) {
+      return NextResponse.json({ error: paymentError.message }, { status: 400 });
+    }
+
+    await writeMasterAction('approve_payment_request', {
+      request_id: requestId,
+      store_id: payment.store_id,
+      plan_type: payment.plan_type
+    });
+
     return NextResponse.redirect(new URL('/master', origin));
   }
 
-  const reject = await service.from('payment_requests').update({ status: 'rejected' }).eq('id', request_id);
-  if (reject.error) return NextResponse.json({ error: reject.error.message }, { status: 400 });
+  const { error: rejectError } = await service
+    .from('payment_requests')
+    .update({ status: 'rejected' })
+    .eq('id', requestId);
 
-  await writeMasterAction('reject_payment_request', { request_id, store_id: payment.store_id, plan_type: payment.plan_type });
+  if (rejectError) {
+    return NextResponse.json({ error: rejectError.message }, { status: 400 });
+  }
+
+  await writeMasterAction('reject_payment_request', {
+    request_id: requestId,
+    store_id: payment.store_id,
+    plan_type: payment.plan_type
+  });
+
   return NextResponse.redirect(new URL('/master', origin));
 }

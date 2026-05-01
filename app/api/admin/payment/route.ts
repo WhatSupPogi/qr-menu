@@ -2,54 +2,105 @@ import { NextResponse } from 'next/server';
 import { getServiceSupabase, requireStoreOwnershipBySlug } from '@/lib/app';
 
 const BUCKET = 'payment-proofs';
-const text = (v: FormDataEntryValue | null) => String(v || '').trim();
-const safe = (name: string) => name.toLowerCase().replace(/[^a-z0-9.]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+
+function cleanText(value: FormDataEntryValue | null) {
+  return String(value || '').trim();
+}
+
+function safeFileName(name: string) {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9.]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+function validPlan(plan: string) {
+  return plan === 'basic' || plan === 'standard' || plan === 'plus';
+}
+
+function validMethod(method: string) {
+  return method === 'GCash' || method === 'GoTyme' || method === 'Bank';
+}
 
 export async function POST(request: Request) {
   try {
     const form = await request.formData();
-    const slug = text(form.get('slug'));
-    const plan_type = text(form.get('plan_type'));
-    const payment_method = text(form.get('payment_method'));
-    const reference_number = text(form.get('reference_number'));
-    const proof = form.get('proof') as File | null;
+    const slug = cleanText(form.get('slug'));
+    const planType = cleanText(form.get('plan_type'));
+    const paymentMethod = cleanText(form.get('payment_method'));
+    const referenceNumber = cleanText(form.get('reference_number'));
+    const proofFile = form.get('proof') as File | null;
 
-    if (!slug) return NextResponse.json({ error: 'Missing store.' }, { status: 400 });
-    if (!['basic', 'standard', 'plus'].includes(plan_type)) return NextResponse.json({ error: 'Please select a paid plan.' }, { status: 400 });
-    if (!['GCash', 'GoTyme', 'Bank'].includes(payment_method)) return NextResponse.json({ error: 'Please select a payment method.' }, { status: 400 });
-    if (!reference_number) return NextResponse.json({ error: 'Reference number is required.' }, { status: 400 });
+    if (!slug) {
+      return NextResponse.json({ error: 'Missing store.' }, { status: 400 });
+    }
+
+    if (!validPlan(planType)) {
+      return NextResponse.json({ error: 'Please select a paid plan.' }, { status: 400 });
+    }
+
+    if (!validMethod(paymentMethod)) {
+      return NextResponse.json({ error: 'Please select a payment method.' }, { status: 400 });
+    }
+
+    if (!referenceNumber) {
+      return NextResponse.json({ error: 'Reference number is required.' }, { status: 400 });
+    }
 
     const owned = await requireStoreOwnershipBySlug(slug);
-    if (!owned.ok) return NextResponse.json({ error: owned.reason }, { status: 403 });
+
+    if (!owned.ok) {
+      return NextResponse.json({ error: owned.reason }, { status: 403 });
+    }
 
     const service = getServiceSupabase();
-    let proof_image_url: string | null = null;
-    let proof_image_path: string | null = null;
+    let proofImageUrl: string | null = null;
+    let proofImagePath: string | null = null;
 
-    if (proof && proof.size > 0) {
-      if (!proof.type.startsWith('image/')) return NextResponse.json({ error: 'Please upload an image proof.' }, { status: 400 });
-      if (proof.size > 5 * 1024 * 1024) return NextResponse.json({ error: 'Proof image must be under 5MB.' }, { status: 400 });
+    if (proofFile && proofFile.size > 0) {
+      if (!proofFile.type.startsWith('image/')) {
+        return NextResponse.json({ error: 'Please upload an image proof.' }, { status: 400 });
+      }
 
-      const ext = safe(proof.name).split('.').pop() || 'jpg';
-      proof_image_path = `${slug}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
-      const bytes = await proof.arrayBuffer();
-      const upload = await service.storage.from(BUCKET).upload(proof_image_path, bytes, { contentType: proof.type || 'image/jpeg', upsert: false });
-      if (upload.error) return NextResponse.json({ error: upload.error.message }, { status: 400 });
-      proof_image_url = service.storage.from(BUCKET).getPublicUrl(proof_image_path).data.publicUrl;
+      if (proofFile.size > 5 * 1024 * 1024) {
+        return NextResponse.json({ error: 'Proof image must be under 5MB.' }, { status: 400 });
+      }
+
+      const extension = safeFileName(proofFile.name).split('.').pop() || 'jpg';
+      proofImagePath = `${slug}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
+      const bytes = await proofFile.arrayBuffer();
+
+      const { error: uploadError } = await service.storage
+        .from(BUCKET)
+        .upload(proofImagePath, bytes, {
+          contentType: proofFile.type || 'image/jpeg',
+          upsert: false
+        });
+
+      if (uploadError) {
+        return NextResponse.json({ error: uploadError.message }, { status: 400 });
+      }
+
+      const { data } = service.storage.from(BUCKET).getPublicUrl(proofImagePath);
+      proofImageUrl = data.publicUrl;
     }
 
     const { error } = await service.from('payment_requests').insert({
       store_id: owned.store.id,
-      plan_type,
-      payment_method,
-      reference_number,
-      proof_image_url,
-      proof_image_path,
+      plan_type: planType,
+      payment_method: paymentMethod,
+      reference_number: referenceNumber,
+      proof_image_url: proofImageUrl,
+      proof_image_path: proofImagePath,
       status: 'pending'
     });
 
     if (error) {
-      if (proof_image_path) await service.storage.from(BUCKET).remove([proof_image_path]);
+      if (proofImagePath) {
+        await service.storage.from(BUCKET).remove([proofImagePath]);
+      }
+
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requireMasterSession, listMasterStores } from '@/lib/app';
+import { getServiceSupabase, requireMasterSession, listMasterStores } from '@/lib/app';
 
 export default async function MasterPage({
   searchParams
@@ -12,6 +12,14 @@ export default async function MasterPage({
 }) {
   await requireMasterSession();
   const { stores, attempts, actions } = await listMasterStores();
+
+  const service = getServiceSupabase();
+
+  const { data: paymentRequests } = await service
+    .from('payment_requests')
+    .select('id, store_id, plan_type, payment_method, reference_number, proof_image_url, status, created_at, stores(name, slug)')
+    .order('created_at', { ascending: false })
+    .limit(30);
 
   const params = (await searchParams) || {};
   const q = (params.q || '').trim().toLowerCase();
@@ -41,7 +49,7 @@ export default async function MasterPage({
         <div className="between">
           <div>
             <h1 className="hero-title">Master Admin</h1>
-            <p className="hero-text">Create stores, manage plans, download QR codes, and control access.</p>
+            <p className="hero-text">Create stores, manage plans, approve payments, download QR codes, and control access.</p>
           </div>
           <form action="/api/master/logout" method="post">
             <button className="button secondary" type="submit">Sign Out</button>
@@ -66,7 +74,7 @@ export default async function MasterPage({
 
       <section className="card form-card">
         <h2 className="section-title">Create Store</h2>
-        <p className="section-subtext">Add a new store and create the owner login at the same time.</p>
+        <p className="section-subtext">New stores start on the Free plan by default.</p>
 
         <form action="/api/master/store" method="post" className="stack gap-16">
           <div className="grid grid-3">
@@ -128,6 +136,71 @@ export default async function MasterPage({
             <button className="button" type="submit">Create Store</button>
           </div>
         </form>
+      </section>
+
+      <section className="card table-card">
+        <h2 className="section-title">Payment Requests</h2>
+        <p className="section-subtext">Approve payments to upgrade stores from Free to paid plans.</p>
+
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Store</th>
+                <th>Plan</th>
+                <th>Method</th>
+                <th>Reference</th>
+                <th>Proof</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(paymentRequests || []).map((request: any) => (
+                <tr key={request.id}>
+                  <td>
+                    <strong>{request.stores?.name || 'Store'}</strong>
+                    <div><small>/{request.stores?.slug || ''}</small></div>
+                  </td>
+                  <td>{request.plan_type}</td>
+                  <td>{request.payment_method}</td>
+                  <td>{request.reference_number}</td>
+                  <td>
+                    {request.proof_image_url ? (
+                      <a href={request.proof_image_url} target="_blank" rel="noreferrer">View Proof</a>
+                    ) : (
+                      <small>No proof</small>
+                    )}
+                  </td>
+                  <td>{request.status}</td>
+                  <td>
+                    {request.status === 'pending' ? (
+                      <div className="inline-actions">
+                        <form action="/api/master/payment" method="post">
+                          <input type="hidden" name="request_id" value={request.id} />
+                          <input type="hidden" name="action" value="approve" />
+                          <button className="button fit-button" type="submit">Approve</button>
+                        </form>
+                        <form action="/api/master/payment" method="post">
+                          <input type="hidden" name="request_id" value={request.id} />
+                          <input type="hidden" name="action" value="reject" />
+                          <button className="button danger fit-button" type="submit">Reject</button>
+                        </form>
+                      </div>
+                    ) : (
+                      <small>Done</small>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {(paymentRequests || []).length === 0 ? (
+                <tr>
+                  <td colSpan={7}><small>No payment requests yet.</small></td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section className="card table-card">
