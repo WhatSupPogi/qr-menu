@@ -44,43 +44,11 @@ function refreshStorePage(slug: string) {
 }
 
 function fallbackPlanConfig(businessType: string, planType: string) {
-  if (planType === 'free') {
-    if (businessType === 'restaurant' || businessType === 'coffee_shop') {
-      return { product_limit: 10, image_limit_kb: 300, photo_count_limit: 3 };
-    }
-
-    if (businessType !== 'sari_sari') {
-      return { product_limit: 10, image_limit_kb: 500, photo_count_limit: 3 };
-    }
-
-    return {
-      product_limit: 10,
-      image_limit_kb: 100,
-      photo_count_limit: 3
-    };
-  }
-
-  if (businessType === 'restaurant') {
-    if (planType === 'standard') return { product_limit: 100, image_limit_kb: 300, photo_count_limit: 100 };
-    if (planType === 'plus') return { product_limit: 300, image_limit_kb: 300, photo_count_limit: 300 };
-    return { product_limit: 50, image_limit_kb: 300, photo_count_limit: 50 };
-  }
-
-  if (businessType === 'bar' || businessType === 'cosmetics' || businessType === 'retail' || businessType === 'pharmacy' || businessType === 'electronics' || businessType === 'clothing' || businessType === 'other') {
-    if (planType === 'standard') return { product_limit: 100, image_limit_kb: 500, photo_count_limit: 40 };
-    if (planType === 'plus') return { product_limit: 300, image_limit_kb: 500, photo_count_limit: 120 };
-    return { product_limit: 50, image_limit_kb: 500, photo_count_limit: 20 };
-  }
-
-  if (businessType === 'coffee_shop') {
-    if (planType === 'standard') return { product_limit: 100, image_limit_kb: 500, photo_count_limit: 40 };
-    if (planType === 'plus') return { product_limit: 300, image_limit_kb: 500, photo_count_limit: 120 };
-    return { product_limit: 50, image_limit_kb: 300, photo_count_limit: 20 };
-  }
-
-  if (planType === 'standard') return { product_limit: 100, image_limit_kb: 100, photo_count_limit: 40 };
-  if (planType === 'plus') return { product_limit: 300, image_limit_kb: 100, photo_count_limit: 120 };
-  return { product_limit: 50, image_limit_kb: 100, photo_count_limit: 20 };
+  if (planType === 'unli') return { product_limit: 999999, image_limit_kb: 100, photo_count_limit: 999999 };
+  if (planType === 'plus') return { product_limit: 300, image_limit_kb: 100, photo_count_limit: 300 };
+  if (planType === 'standard') return { product_limit: 100, image_limit_kb: 100, photo_count_limit: 100 };
+  if (planType === 'basic') return { product_limit: 50, image_limit_kb: 100, photo_count_limit: 50 };
+  return { product_limit: 10, image_limit_kb: 100, photo_count_limit: 10 };
 }
 
 async function getPlan(service: ReturnType<typeof getServiceSupabase>, businessType: string, planType: string) {

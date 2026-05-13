@@ -18,7 +18,7 @@ export type BusinessType =
   | 'electronics'
   | 'clothing'
   | 'other';
-export type PlanType = 'free' | 'basic' | 'standard' | 'plus';
+export type PlanType = 'free' | 'basic' | 'standard' | 'plus' | 'unli';
 export type StoreStatus = 'active' | 'suspended';
 
 export const BUSINESS_TYPE_OPTIONS: { value: BusinessType; label: string }[] = [

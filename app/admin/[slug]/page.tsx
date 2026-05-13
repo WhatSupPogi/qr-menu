@@ -49,13 +49,16 @@ const MAX_IMAGE_WIDTH = 800;
 
 function titleCase(value?: string) {
   if (!value) return 'Free';
+  if (value === 'unli') return 'Unli';
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-function getImageLimitKb(businessType?: string, planLimit?: number) {
-  if (businessType === 'restaurant') return 300;
-  if (businessType === 'bar') return 500;
+function getImageLimitKb(_businessType?: string, planLimit?: number) {
   return planLimit || 100;
+}
+
+function formatLimit(value?: number) {
+  return Number(value || 0) >= 999999 ? 'Unlimited' : String(value || 0);
 }
 
 function readImage(file: File) {

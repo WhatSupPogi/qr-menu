@@ -16,7 +16,7 @@ function safeFileName(name: string) {
 }
 
 function validPlan(plan: string) {
-  return plan === 'basic' || plan === 'standard' || plan === 'plus';
+  return plan === 'basic' || plan === 'standard' || plan === 'plus' || plan === 'unli';
 }
 
 function validMethod(method: string) {

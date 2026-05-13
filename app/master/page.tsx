@@ -1,6 +1,18 @@
 import Link from 'next/link';
 import { BUSINESS_TYPE_OPTIONS, businessTypeLabel, getServiceSupabase, requireMasterSession, listMasterStores } from '@/lib/app';
 
+const PLAN_OPTIONS = [
+  { value: 'free', label: 'Free' },
+  { value: 'basic', label: 'Basic' },
+  { value: 'standard', label: 'Standard' },
+  { value: 'plus', label: 'Plus' },
+  { value: 'unli', label: 'Unli' }
+];
+
+function planLabel(value?: string) {
+  return PLAN_OPTIONS.find((option) => option.value === value)?.label || 'Free';
+}
+
 export default async function MasterPage({
   searchParams
 }: {
@@ -90,10 +102,9 @@ export default async function MasterPage({
             <label className="field">
               <span>Plan</span>
               <select name="plan_type" defaultValue="free">
-                <option value="free">Free</option>
-                <option value="basic">Basic</option>
-                <option value="standard">Standard</option>
-                <option value="plus">Plus</option>
+                {PLAN_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
               </select>
             </label>
 
@@ -248,7 +259,7 @@ export default async function MasterPage({
                     <div><small>/{store.slug}</small></div>
                   </td>
                   <td>{businessTypeLabel(store.business_type)}</td>
-                  <td>{store.plan_type}</td>
+                  <td>{planLabel(store.plan_type)}</td>
                   <td>{store.owner_phone}</td>
                   <td><span className={`badge ${store.status}`}>{store.status}</span></td>
                   <td>{new Date(store.created_at).toLocaleString()}</td>
@@ -322,10 +333,9 @@ export default async function MasterPage({
                           <input type="hidden" name="mode" value="plan" />
                           <input type="hidden" name="store_id" value={store.id} />
                           <select name="plan_type" defaultValue={store.plan_type}>
-                            <option value="free">Free</option>
-                            <option value="basic">Basic</option>
-                            <option value="standard">Standard</option>
-                            <option value="plus">Plus</option>
+                            {PLAN_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
                           </select>
                           <button className="button secondary fit-button" type="submit">Update Plan</button>
                         </form>

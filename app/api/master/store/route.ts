@@ -94,7 +94,7 @@ export async function POST(request: Request) {
     const store_id = cleanText(form.get('store_id'));
     const plan_type = cleanText(form.get('plan_type'));
 
-    if (!store_id || !['free', 'basic', 'standard', 'plus'].includes(plan_type)) {
+    if (!store_id || !['free', 'basic', 'standard', 'plus', 'unli'].includes(plan_type)) {
       return NextResponse.json({ error: 'Invalid plan update.' }, { status: 400 });
     }
 
