@@ -14,6 +14,13 @@ function cleanPromoLabel(value: FormDataEntryValue | null) {
   return 'none';
 }
 
+function cleanContactType(value: FormDataEntryValue | null) {
+  const type = String(value || 'none').trim().toLowerCase();
+  if (type === 'messenger' || type === 'facebook' || type === 'phone' || type === 'link') return type;
+  if (type === 'none') return type;
+  return null;
+}
+
 function toBool(value: FormDataEntryValue | null) {
   return value === 'on' || value === 'true' || value === '1';
 }
@@ -103,7 +110,11 @@ function storePayload(store: any) {
     owner_name: store.owner_name || '',
     owner_phone: store.owner_phone || '',
     location: store.location || '',
-    promo_banner: store.promo_banner || ''
+    promo_banner: store.promo_banner || '',
+    public_contact_enabled: Boolean(store.public_contact_enabled),
+    public_contact_label: store.public_contact_label || '',
+    public_contact_type: store.public_contact_type || 'none',
+    public_contact_value: store.public_contact_value || ''
   };
 }
 
@@ -200,7 +211,7 @@ export async function GET(request: Request) {
 
   const { data: store, error: storeError } = await service
     .from('stores')
-    .select('id, slug, name, business_type, plan_type, status, owner_name, owner_phone, location, promo_banner')
+    .select('id, slug, name, business_type, plan_type, status, owner_name, owner_phone, location, promo_banner, public_contact_enabled, public_contact_label, public_contact_type, public_contact_value')
     .eq('slug', slug)
     .maybeSingle();
 
@@ -329,6 +340,36 @@ export async function POST(request: Request) {
       const { error } = await service
         .from('stores')
         .update({ promo_banner: promoBanner })
+        .eq('id', owned.store.id);
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+      refreshStorePage(slug);
+      return NextResponse.json({ ok: true });
+    }
+
+    if (mode === 'public_contact') {
+      const publicContactEnabled = toBool(form.get('public_contact_enabled'));
+      const publicContactLabel = String(form.get('public_contact_label') || '').trim().slice(0, 30);
+      const publicContactType = cleanContactType(form.get('public_contact_type'));
+      const publicContactValue = String(form.get('public_contact_value') || '').trim().slice(0, 300);
+
+      if (!publicContactType) {
+        return NextResponse.json({ error: 'Please select a valid contact type.' }, { status: 400 });
+      }
+
+      if (publicContactEnabled && publicContactType !== 'none' && !publicContactValue) {
+        return NextResponse.json({ error: 'Contact value is required when the button is enabled.' }, { status: 400 });
+      }
+
+      const { error } = await service
+        .from('stores')
+        .update({
+          public_contact_enabled: publicContactEnabled,
+          public_contact_label: publicContactLabel,
+          public_contact_type: publicContactType,
+          public_contact_value: publicContactValue
+        })
         .eq('id', owned.store.id);
 
       if (error) return NextResponse.json({ error: error.message }, { status: 400 });

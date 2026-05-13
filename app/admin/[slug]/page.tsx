@@ -29,6 +29,13 @@ const EMPTY_FORM = {
   is_combo: false
 };
 
+const EMPTY_CONTACT_FORM = {
+  public_contact_enabled: false,
+  public_contact_label: '',
+  public_contact_type: 'none',
+  public_contact_value: ''
+};
+
 const MAX_IMAGE_WIDTH = 800;
 
 function titleCase(value?: string) {
@@ -135,6 +142,7 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
   const [referenceNumber, setReferenceNumber] = useState('');
   const [paymentProof, setPaymentProof] = useState<File | null>(null);
   const [search, setSearch] = useState('');
+  const [contactForm, setContactForm] = useState(EMPTY_CONTACT_FORM);
   const [optimizedImage, setOptimizedImage] = useState<File | null>(null);
   const [imageMessage, setImageMessage] = useState('Image will be automatically optimized.');
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
@@ -156,6 +164,12 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
 
     setData(json);
     setBannerText(json?.store?.promo_banner || '');
+    setContactForm({
+      public_contact_enabled: Boolean(json?.store?.public_contact_enabled),
+      public_contact_label: json?.store?.public_contact_label || '',
+      public_contact_type: json?.store?.public_contact_type || 'none',
+      public_contact_value: json?.store?.public_contact_value || ''
+    });
     setLoading(false);
   }
 
@@ -285,6 +299,31 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
     }
 
     setMessage('Promo banner saved.');
+    await load();
+  }
+
+  async function saveContactButton(e: React.FormEvent) {
+    e.preventDefault();
+    setError('');
+    setMessage('');
+
+    const form = new FormData();
+    form.set('mode', 'public_contact');
+    form.set('slug', slug);
+    form.set('public_contact_enabled', contactForm.public_contact_enabled ? 'true' : 'false');
+    form.set('public_contact_label', contactForm.public_contact_label);
+    form.set('public_contact_type', contactForm.public_contact_type);
+    form.set('public_contact_value', contactForm.public_contact_value);
+
+    const res = await fetch('/api/admin/product', { method: 'POST', body: form });
+    const json = await res.json();
+
+    if (!res.ok) {
+      setError(json.error || 'Could not save contact button.');
+      return;
+    }
+
+    setMessage('Contact button saved.');
     await load();
   }
 
@@ -529,6 +568,61 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
             <input className="input" value={bannerText} onChange={(e) => setBannerText(e.target.value)} placeholder="Today only: Free delivery nearby!" />
           </label>
           <button className="button" type="submit">Save Banner</button>
+        </form>
+      </section>
+
+      <section className="card form-card">
+        <h2 className="section-title">Customer Contact Button</h2>
+        <p className="muted">Let customers contact your store from the QR menu.</p>
+        <form className="grid grid-2" onSubmit={saveContactButton}>
+          <label className="check-card">
+            <input
+              type="checkbox"
+              checked={contactForm.public_contact_enabled}
+              onChange={(e) => setContactForm((prev) => ({ ...prev, public_contact_enabled: e.target.checked }))}
+            />
+            <strong>Enable Contact Button</strong>
+            <span>Show a contact button on your public menu.</span>
+          </label>
+
+          <label>
+            Button Label
+            <input
+              className="input"
+              maxLength={30}
+              value={contactForm.public_contact_label}
+              onChange={(e) => setContactForm((prev) => ({ ...prev, public_contact_label: e.target.value }))}
+              placeholder="Message Us"
+            />
+          </label>
+
+          <label>
+            Contact Type
+            <select
+              className="select"
+              value={contactForm.public_contact_type}
+              onChange={(e) => setContactForm((prev) => ({ ...prev, public_contact_type: e.target.value }))}
+            >
+              <option value="none">None</option>
+              <option value="messenger">Messenger</option>
+              <option value="facebook">Facebook Page</option>
+              <option value="phone">Phone Call</option>
+              <option value="link">Custom Link</option>
+            </select>
+          </label>
+
+          <label>
+            Contact Value
+            <input
+              className="input"
+              maxLength={300}
+              value={contactForm.public_contact_value}
+              onChange={(e) => setContactForm((prev) => ({ ...prev, public_contact_value: e.target.value }))}
+              placeholder="Messenger/Facebook URL, phone number, or contact link"
+            />
+          </label>
+
+          <button className="button" type="submit">Save Contact Button</button>
         </form>
       </section>
 

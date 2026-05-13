@@ -6,10 +6,13 @@ type StoreData = {
   id: string;
   name: string;
   slug: string;
-  owner_phone: string | null;
   location: string | null;
   status: string;
   promo_banner?: string | null;
+  public_contact_enabled: boolean;
+  public_contact_label: string | null;
+  public_contact_type: string;
+  public_contact_value: string | null;
 };
 
 type ProductData = {
@@ -89,6 +92,20 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 900,
     fontSize: '17px',
     boxShadow: '0 10px 25px rgba(2,132,199,0.22)'
+  },
+  contactButton: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: '16px',
+    background: '#ffffff',
+    color: '#0f172a',
+    borderRadius: '18px',
+    padding: '13px 16px',
+    fontWeight: 900,
+    fontSize: '16px',
+    textDecoration: 'none',
+    boxShadow: '0 10px 25px rgba(15,23,42,0.18)'
   },
   searchBox: {
     position: 'sticky',
@@ -250,6 +267,26 @@ const styles: Record<string, React.CSSProperties> = {
   }
 };
 
+function defaultContactLabel(type: string) {
+  if (type === 'messenger') return 'Message Us';
+  if (type === 'facebook') return 'Visit Facebook';
+  if (type === 'phone') return 'Call Store';
+  return 'Contact Store';
+}
+
+function getContactLink(store: StoreData) {
+  const type = store.public_contact_type;
+  const value = (store.public_contact_value || '').trim();
+
+  if (!store.public_contact_enabled || type === 'none' || !value) return null;
+
+  return {
+    href: type === 'phone' ? `tel:${value}` : value,
+    label: (store.public_contact_label || '').trim() || defaultContactLabel(type),
+    external: type !== 'phone'
+  };
+}
+
 export default function StoreClient({
   store,
   products
@@ -258,6 +295,7 @@ export default function StoreClient({
   products: ProductData[];
 }) {
   const [search, setSearch] = useState('');
+  const contactLink = getContactLink(store);
 
   const filteredProducts = useMemo(() => {
     const keyword = search.trim().toLowerCase();
@@ -276,11 +314,21 @@ export default function StoreClient({
 
           <div style={styles.meta}>
             {store.location ? <span style={styles.metaPill}>{store.location}</span> : null}
-            {store.owner_phone ? <span style={styles.metaPill}>{store.owner_phone}</span> : null}
           </div>
 
           {store.promo_banner ? (
             <div style={styles.promo}>{store.promo_banner}</div>
+          ) : null}
+
+          {contactLink ? (
+            <a
+              href={contactLink.href}
+              target={contactLink.external ? '_blank' : undefined}
+              rel={contactLink.external ? 'noreferrer' : undefined}
+              style={styles.contactButton}
+            >
+              {contactLink.label}
+            </a>
           ) : null}
         </header>
 

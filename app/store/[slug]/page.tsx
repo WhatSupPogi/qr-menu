@@ -9,10 +9,13 @@ type StoreRow = {
   id: string;
   name: string;
   slug: string;
-  owner_phone: string | null;
   location: string | null;
   status: string;
   promo_banner?: string | null;
+  public_contact_enabled: boolean;
+  public_contact_label: string | null;
+  public_contact_type: string;
+  public_contact_value: string | null;
 };
 
 type ProductRow = {
@@ -52,7 +55,7 @@ const getCachedPublicStore = unstable_cache(
 
     const { data: store, error: storeError } = await supabase
       .from('stores')
-      .select('id, name, slug, owner_phone, location, status, promo_banner')
+      .select('id, name, slug, location, status, promo_banner, public_contact_enabled, public_contact_label, public_contact_type, public_contact_value')
       .eq('slug', slug)
       .eq('status', 'active')
       .maybeSingle();
