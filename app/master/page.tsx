@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { getServiceSupabase, requireMasterSession, listMasterStores } from '@/lib/app';
+import { BUSINESS_TYPE_OPTIONS, businessTypeLabel, getServiceSupabase, requireMasterSession, listMasterStores } from '@/lib/app';
 
 export default async function MasterPage({
   searchParams
@@ -81,8 +81,9 @@ export default async function MasterPage({
             <label className="field">
               <span>Business Type</span>
               <select name="business_type" defaultValue="sari_sari">
-                <option value="sari_sari">Sari-Sari</option>
-                <option value="restaurant">Restaurant</option>
+                {BUSINESS_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
               </select>
             </label>
 
@@ -218,8 +219,9 @@ export default async function MasterPage({
 
           <select name="type" defaultValue={params.type || 'all'}>
             <option value="all">All Types</option>
-            <option value="sari_sari">Sari-Sari</option>
-            <option value="restaurant">Restaurant</option>
+            {BUSINESS_TYPE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
           </select>
 
           <button className="button" type="submit">Apply</button>
@@ -245,7 +247,7 @@ export default async function MasterPage({
                     <strong>{store.name}</strong>
                     <div><small>/{store.slug}</small></div>
                   </td>
-                  <td>{store.business_type}</td>
+                  <td>{businessTypeLabel(store.business_type)}</td>
                   <td>{store.plan_type}</td>
                   <td>{store.owner_phone}</td>
                   <td><span className={`badge ${store.status}`}>{store.status}</span></td>
@@ -256,6 +258,14 @@ export default async function MasterPage({
                         <input type="hidden" name="mode" value="update_store" />
                         <input type="hidden" name="store_id" value={store.id} />
                         <div className="grid grid-2">
+                          <label className="field">
+                            <span>Business Type</span>
+                            <select name="business_type" defaultValue={store.business_type || 'sari_sari'}>
+                              {BUSINESS_TYPE_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                              ))}
+                            </select>
+                          </label>
                           <label className="field">
                             <span>Store Name</span>
                             <input name="name" defaultValue={store.name} required />

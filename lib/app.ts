@@ -7,9 +7,53 @@ import { unstable_cache, revalidateTag } from 'next/cache';
 import { createBrowserClient, createServerClient } from '@supabase/ssr';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-export type BusinessType = 'sari_sari' | 'restaurant';
-export type PlanType = 'basic' | 'standard' | 'plus';
+export type BusinessType =
+  | 'sari_sari'
+  | 'restaurant'
+  | 'bar'
+  | 'coffee_shop'
+  | 'cosmetics'
+  | 'retail'
+  | 'pharmacy'
+  | 'electronics'
+  | 'clothing'
+  | 'other';
+export type PlanType = 'free' | 'basic' | 'standard' | 'plus';
 export type StoreStatus = 'active' | 'suspended';
+
+export const BUSINESS_TYPE_OPTIONS: { value: BusinessType; label: string }[] = [
+  { value: 'sari_sari', label: 'Store' },
+  { value: 'restaurant', label: 'Restaurant' },
+  { value: 'bar', label: 'Bar' },
+  { value: 'coffee_shop', label: 'Coffee Shop' },
+  { value: 'cosmetics', label: 'Cosmetics' },
+  { value: 'retail', label: 'Retail' },
+  { value: 'pharmacy', label: 'Pharmacy' },
+  { value: 'electronics', label: 'Electronics' },
+  { value: 'clothing', label: 'Clothing' },
+  { value: 'other', label: 'Other' }
+];
+
+export function isBusinessType(value: string): value is BusinessType {
+  return BUSINESS_TYPE_OPTIONS.some((option) => option.value === value);
+}
+
+export function businessTypeLabel(value?: string) {
+  return BUSINESS_TYPE_OPTIONS.find((option) => option.value === value)?.label || 'Store';
+}
+
+export function defaultCategoryNamesForBusinessType(value: string) {
+  if (value === 'restaurant') return ['Meals', 'Drinks', 'Desserts', 'Specials', 'Others'];
+  if (value === 'bar') return ['Beer', 'Cocktails', 'Wine', 'Pulutan', 'Promos', 'Others'];
+  if (value === 'coffee_shop') return ['Coffee', 'Non-Coffee', 'Frappe', 'Tea', 'Pastries', 'Others'];
+  if (value === 'cosmetics') return ['Skincare', 'Makeup', 'Hair Care', 'Perfume', 'Body Care', 'Others'];
+  if (value === 'retail') return ['Featured', 'New Arrivals', 'Best Sellers', 'Essentials', 'Others'];
+  if (value === 'pharmacy') return ['Medicine', 'Vitamins', 'Personal Care', 'First Aid', 'Others'];
+  if (value === 'electronics') return ['Accessories', 'Gadgets', 'Chargers', 'Audio', 'Others'];
+  if (value === 'clothing') return ['Men', 'Women', 'Kids', 'Accessories', 'Others'];
+  if (value === 'other') return ['Featured', 'Products', 'Services', 'Others'];
+  return ['Drinks', 'Snacks', 'Noodles', 'Canned Goods', 'Toiletries', 'Others'];
+}
 
 export type StoreRow = {
   id: string;

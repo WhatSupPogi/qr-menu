@@ -5,6 +5,8 @@ import { getBrowserSupabase } from '@/lib/client';
 
 type Product = {
   id: string;
+  category_id?: string | null;
+  category_name?: string;
   name: string;
   price: number;
   image_url: string | null;
@@ -20,6 +22,7 @@ type Product = {
 const EMPTY_FORM = {
   name: '',
   price: '',
+  category_id: '',
   in_stock: 'true',
   display_order: '0',
   promo_label: 'none',
@@ -34,6 +37,12 @@ const EMPTY_CONTACT_FORM = {
   public_contact_label: '',
   public_contact_type: 'none',
   public_contact_value: ''
+};
+
+const EMPTY_CATEGORY_FORM = {
+  category_id: '',
+  category_name: '',
+  category_display_order: '0'
 };
 
 const MAX_IMAGE_WIDTH = 800;
@@ -143,6 +152,7 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
   const [paymentProof, setPaymentProof] = useState<File | null>(null);
   const [search, setSearch] = useState('');
   const [contactForm, setContactForm] = useState(EMPTY_CONTACT_FORM);
+  const [categoryForm, setCategoryForm] = useState(EMPTY_CATEGORY_FORM);
   const [optimizedImage, setOptimizedImage] = useState<File | null>(null);
   const [imageMessage, setImageMessage] = useState('Image will be automatically optimized.');
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
@@ -358,6 +368,7 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
     setFormValues({
       name: product.name || '',
       price: String(product.price || ''),
+      category_id: product.category_id || '',
       in_stock: product.in_stock ? 'true' : 'false',
       display_order: String(product.display_order || 0),
       promo_label: product.promo_label || 'none',
@@ -368,6 +379,59 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
     });
     resetImage();
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function editCategory(category: any) {
+    setCategoryForm({
+      category_id: category.id,
+      category_name: category.name || '',
+      category_display_order: String(category.display_order || 0)
+    });
+  }
+
+  async function saveCategory(e: React.FormEvent) {
+    e.preventDefault();
+    setError('');
+    setMessage('');
+
+    const form = new FormData();
+    form.set('mode', 'category_save');
+    form.set('slug', slug);
+    form.set('category_id', categoryForm.category_id);
+    form.set('category_name', categoryForm.category_name);
+    form.set('category_display_order', categoryForm.category_display_order);
+
+    const res = await fetch('/api/admin/product', { method: 'POST', body: form });
+    const json = await res.json();
+
+    if (!res.ok) {
+      setError(json.error || 'Could not save category.');
+      return;
+    }
+
+    setCategoryForm(EMPTY_CATEGORY_FORM);
+    setMessage('Category saved.');
+    await load();
+  }
+
+  async function deactivateCategory(categoryId: string) {
+    if (!window.confirm('Deactivate this category?')) return;
+
+    const form = new FormData();
+    form.set('mode', 'category_deactivate');
+    form.set('slug', slug);
+    form.set('category_id', categoryId);
+
+    const res = await fetch('/api/admin/product', { method: 'POST', body: form });
+    const json = await res.json();
+
+    if (!res.ok) {
+      setError(json.error || 'Could not deactivate category.');
+      return;
+    }
+
+    setMessage('Category deactivated.');
+    await load();
   }
 
   async function deleteProduct(id: string) {
@@ -424,6 +488,7 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
   const plan = data.plan || { product_limit: 10, image_limit_kb: 100, photo_count_limit: 3 };
   const usage = data.usage || { productCount: 0, imageCount: 0 };
   const products = data.products || [];
+  const categories = data.categories || [];
   const paymentRequests = data.paymentRequests || [];
   const isFree = store?.plan_type === 'free';
   const filteredProducts = products.filter((p: Product) => p.name.toLowerCase().includes(search.toLowerCase()));
@@ -627,6 +692,73 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
       </section>
 
       <section className="card form-card">
+        <h2 className="section-title">Categories</h2>
+        <form className="grid grid-3" onSubmit={saveCategory}>
+          <label>
+            Category Name
+            <input
+              className="input"
+              value={categoryForm.category_name}
+              onChange={(e) => setCategoryForm((prev) => ({ ...prev, category_name: e.target.value }))}
+              required
+            />
+          </label>
+
+          <label>
+            Display Order
+            <input
+              className="input"
+              type="number"
+              value={categoryForm.category_display_order}
+              onChange={(e) => setCategoryForm((prev) => ({ ...prev, category_display_order: e.target.value }))}
+            />
+          </label>
+
+          <div className="inline-actions" style={{ alignItems: 'end' }}>
+            <button className="button" type="submit">Save Category</button>
+            {categoryForm.category_id ? (
+              <button className="button secondary" type="button" onClick={() => setCategoryForm(EMPTY_CATEGORY_FORM)}>
+                Cancel
+              </button>
+            ) : null}
+          </div>
+        </form>
+
+        <div className="table-wrap" style={{ marginTop: 16 }}>
+          <table>
+            <thead>
+              <tr>
+                <th>Category Name</th>
+                <th>Display Order</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {categories.map((category: any) => (
+                <tr key={category.id}>
+                  <td>{category.name}</td>
+                  <td>{category.display_order}</td>
+                  <td>Active</td>
+                  <td>
+                    <div className="inline-actions">
+                      <button className="button secondary fit-button" type="button" onClick={() => editCategory(category)}>Edit</button>
+                      <button className="button danger fit-button" type="button" onClick={() => deactivateCategory(category.id)}>Deactivate</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {categories.length === 0 ? (
+                <tr>
+                  <td colSpan={4}><small>No active categories yet.</small></td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="card form-card">
         <h2 className="section-title">{editingId ? 'Edit Item' : 'Add Item'}</h2>
         <p className="muted">Photo is optional. For common products, name and price are enough. You can add photos later.</p>
 
@@ -639,6 +771,15 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
           <label>
             Price
             <input className="input" name="price" type="number" min="0" step="0.01" value={formValues.price} onChange={(e) => setFormValues((prev) => ({ ...prev, price: e.target.value }))} required />
+          </label>
+
+          <label>
+            Category
+            <select className="select" name="category_id" value={formValues.category_id} onChange={(e) => setFormValues((prev) => ({ ...prev, category_id: e.target.value }))}>
+              {categories.map((category: any) => (
+                <option key={category.id} value={category.id}>{category.name}</option>
+              ))}
+            </select>
           </label>
 
           <label>
@@ -722,12 +863,12 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
 
       <section className="card form-card">
         <h2 className="section-title">Bulk Add Items</h2>
-        <p className="muted">Add many items fast. Format: Item name, price</p>
+        <p className="muted">Add many items fast. Format: Item name, price, category</p>
         <form className="grid" onSubmit={submitBulk}>
           <textarea
             className="input"
             rows={7}
-            placeholder={'Coke 1.5L, 95\nSprite 1.5L, 90\nLucky Me Pancit Canton, 18'}
+            placeholder={'Coke 1.5L, 95, Drinks\nLucky Me Pancit Canton, 18, Snacks\nBurger, 100'}
             value={bulkItems}
             onChange={(e) => setBulkItems(e.target.value)}
           />
@@ -766,6 +907,7 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
                     {product.is_combo ? <span className="badge combo">COMBO</span> : null}
                     {product.in_stock ? <span className="badge ok">In Stock</span> : <span className="badge warn">Out of Stock</span>}
                   </div>
+                  {product.category_name ? <p className="muted">Category: {product.category_name}</p> : null}
                   {product.description ? <p className="muted">{product.description}</p> : null}
                   <div className="inline-actions">
                     <button className="button secondary fit-button" onClick={() => editProduct(product)}>Edit</button>

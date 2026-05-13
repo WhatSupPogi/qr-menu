@@ -17,6 +17,7 @@ type StoreData = {
 
 type ProductData = {
   id: string;
+  category_id: string | null;
   name: string;
   price: number;
   image_url: string | null;
@@ -28,6 +29,13 @@ type ProductData = {
   description: string | null;
   display_order: number;
   created_at: string;
+};
+
+type CategoryData = {
+  id: string;
+  name: string;
+  slug: string;
+  display_order: number;
 };
 
 function money(value: number) {
@@ -130,6 +138,28 @@ const styles: Record<string, React.CSSProperties> = {
     outline: 'none',
     background: '#ffffff',
     color: '#0f172a'
+  },
+  tabs: {
+    display: 'flex',
+    gap: '8px',
+    overflowX: 'auto',
+    padding: '4px 0',
+    marginTop: '14px'
+  },
+  tab: {
+    border: '1px solid #cbd5e1',
+    borderRadius: '999px',
+    padding: '9px 13px',
+    background: '#ffffff',
+    color: '#334155',
+    fontWeight: 900,
+    whiteSpace: 'nowrap',
+    cursor: 'pointer'
+  },
+  tabActive: {
+    borderColor: '#0f172a',
+    background: '#0f172a',
+    color: '#ffffff'
   },
   grid: {
     display: 'grid',
@@ -289,21 +319,27 @@ function getContactLink(store: StoreData) {
 
 export default function StoreClient({
   store,
-  products
+  products,
+  categories
 }: {
   store: StoreData;
   products: ProductData[];
+  categories: CategoryData[];
 }) {
   const [search, setSearch] = useState('');
+  const [activeCategory, setActiveCategory] = useState('all');
   const contactLink = getContactLink(store);
 
   const filteredProducts = useMemo(() => {
     const keyword = search.trim().toLowerCase();
+    const categoryFiltered = activeCategory === 'all'
+      ? products
+      : products.filter((product) => product.category_id === activeCategory);
 
-    if (!keyword) return products;
+    if (!keyword) return categoryFiltered;
 
-    return products.filter((product) => product.name.toLowerCase().includes(keyword));
-  }, [products, search]);
+    return categoryFiltered.filter((product) => product.name.toLowerCase().includes(keyword));
+  }, [activeCategory, products, search]);
 
   return (
     <main style={styles.page}>
@@ -340,6 +376,34 @@ export default function StoreClient({
             autoComplete="off"
             style={styles.searchInput}
           />
+
+          {categories.length > 0 ? (
+            <div style={styles.tabs}>
+              <button
+                type="button"
+                onClick={() => setActiveCategory('all')}
+                style={{
+                  ...styles.tab,
+                  ...(activeCategory === 'all' ? styles.tabActive : {})
+                }}
+              >
+                All
+              </button>
+              {categories.map((category) => (
+                <button
+                  key={category.id}
+                  type="button"
+                  onClick={() => setActiveCategory(category.id)}
+                  style={{
+                    ...styles.tab,
+                    ...(activeCategory === category.id ? styles.tabActive : {})
+                  }}
+                >
+                  {category.name}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </section>
 
         <section style={styles.grid}>

@@ -1,7 +1,14 @@
 import QRCode from 'qrcode';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { slugify, requireMasterSession, writeMasterAction, hashText } from '@/lib/app';
+import {
+  defaultCategoryNamesForBusinessType,
+  hashText,
+  isBusinessType,
+  requireMasterSession,
+  slugify,
+  writeMasterAction
+} from '@/lib/app';
 
 function service() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
@@ -11,6 +18,27 @@ function service() {
 
 function cleanText(value: FormDataEntryValue | null) {
   return String(value || '').trim();
+}
+
+async function ensureDefaultCategories(
+  supabase: ReturnType<typeof service>,
+  storeId: string,
+  businessType: string
+) {
+  const names = defaultCategoryNamesForBusinessType(businessType);
+  const rows = names.map((name, index) => ({
+    store_id: storeId,
+    name,
+    slug: slugify(name) || 'others',
+    display_order: index,
+    is_active: true
+  }));
+
+  const { error } = await supabase
+    .from('store_categories')
+    .upsert(rows, { onConflict: 'store_id,slug', ignoreDuplicates: true });
+
+  if (error) throw error;
 }
 
 export async function GET(request: Request) {
@@ -66,7 +94,7 @@ export async function POST(request: Request) {
     const store_id = cleanText(form.get('store_id'));
     const plan_type = cleanText(form.get('plan_type'));
 
-    if (!store_id || !['basic', 'standard', 'plus'].includes(plan_type)) {
+    if (!store_id || !['free', 'basic', 'standard', 'plus'].includes(plan_type)) {
       return NextResponse.json({ error: 'Invalid plan update.' }, { status: 400 });
     }
 
@@ -79,6 +107,7 @@ export async function POST(request: Request) {
 
   if (mode === 'update_store') {
     const store_id = cleanText(form.get('store_id'));
+    const business_type = cleanText(form.get('business_type')) || 'sari_sari';
     const name = cleanText(form.get('name'));
     const owner_name = cleanText(form.get('owner_name'));
     const owner_phone = cleanText(form.get('owner_phone'));
@@ -86,18 +115,19 @@ export async function POST(request: Request) {
     const monthly_price = Number(form.get('monthly_price') || 0);
     const promo_banner = cleanText(form.get('promo_banner')).slice(0, 180);
 
-    if (!store_id || !name || !owner_name || !owner_phone || !location) {
+    if (!store_id || !isBusinessType(business_type) || !name || !owner_name || !owner_phone || !location) {
       return NextResponse.json({ error: 'Missing store information.' }, { status: 400 });
     }
 
     const { error } = await supabase
       .from('stores')
-      .update({ name, owner_name, owner_phone, location, monthly_price, promo_banner })
+      .update({ name, business_type, owner_name, owner_phone, location, monthly_price, promo_banner })
       .eq('id', store_id);
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-    await writeMasterAction('update_store_info', { store_id });
+    await ensureDefaultCategories(supabase, store_id, business_type);
+    await writeMasterAction('update_store_info', { store_id, business_type });
     return NextResponse.redirect(new URL('/master', origin));
   }
 
@@ -208,7 +238,7 @@ export async function POST(request: Request) {
   const admin_email = cleanText(form.get('admin_email')).toLowerCase();
   const admin_password = cleanText(form.get('admin_password'));
 
-  if (!name || !owner_name || !owner_phone || !location) {
+  if (!name || !isBusinessType(business_type) || !owner_name || !owner_phone || !location) {
     return NextResponse.json({ error: 'Missing required store fields.' }, { status: 400 });
   }
 
@@ -233,6 +263,14 @@ export async function POST(request: Request) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  try {
+    await ensureDefaultCategories(supabase, store.id, business_type);
+  } catch (categoryError) {
+    return NextResponse.json({
+      error: categoryError instanceof Error ? categoryError.message : 'Could not create default categories.'
+    }, { status: 400 });
+  }
 
   if (admin_email && admin_password) {
     const { data: createdUser, error: authError } = await supabase.auth.admin.createUser({

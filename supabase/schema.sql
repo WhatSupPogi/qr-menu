@@ -4,8 +4,8 @@ create table if not exists public.stores (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   slug text not null unique,
-  business_type text not null check (business_type in ('sari_sari', 'restaurant')),
-  plan_type text not null check (plan_type in ('basic', 'standard', 'plus')),
+  business_type text not null check (business_type in ('sari_sari', 'restaurant', 'bar', 'coffee_shop', 'cosmetics', 'retail', 'pharmacy', 'electronics', 'clothing', 'other')),
+  plan_type text not null check (plan_type in ('free', 'basic', 'standard', 'plus')),
   owner_name text not null,
   owner_phone text not null,
   location text not null,
@@ -38,13 +38,27 @@ check (public_contact_type in ('none', 'messenger', 'facebook', 'phone', 'link')
 
 create table if not exists public.plan_configs (
   id uuid primary key default gen_random_uuid(),
-  business_type text not null check (business_type in ('sari_sari', 'restaurant')),
-  plan_type text not null check (plan_type in ('basic', 'standard', 'plus')),
+  business_type text not null check (business_type in ('sari_sari', 'restaurant', 'bar', 'coffee_shop', 'cosmetics', 'retail', 'pharmacy', 'electronics', 'clothing', 'other')),
+  plan_type text not null check (plan_type in ('free', 'basic', 'standard', 'plus')),
   product_limit integer not null,
   image_limit_kb integer not null,
   photo_count_limit integer not null,
   unique (business_type, plan_type)
 );
+
+alter table public.stores
+drop constraint if exists stores_business_type_check;
+
+alter table public.stores
+add constraint stores_business_type_check
+check (business_type in ('sari_sari', 'restaurant', 'bar', 'coffee_shop', 'cosmetics', 'retail', 'pharmacy', 'electronics', 'clothing', 'other'));
+
+alter table public.plan_configs
+drop constraint if exists plan_configs_business_type_check;
+
+alter table public.plan_configs
+add constraint plan_configs_business_type_check
+check (business_type in ('sari_sari', 'restaurant', 'bar', 'coffee_shop', 'cosmetics', 'retail', 'pharmacy', 'electronics', 'clothing', 'other'));
 
 create table if not exists public.admin_users (
   id uuid primary key default gen_random_uuid(),
@@ -86,6 +100,21 @@ add column if not exists description text;
 alter table public.products
 add column if not exists display_order integer not null default 0;
 
+create table if not exists public.store_categories (
+  id uuid primary key default gen_random_uuid(),
+  store_id uuid not null references public.stores(id) on delete cascade,
+  name text not null,
+  slug text not null,
+  display_order integer not null default 0,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (store_id, slug)
+);
+
+alter table public.products
+add column if not exists category_id uuid references public.store_categories(id) on delete set null;
+
 create or replace function public.set_updated_at()
 returns trigger language plpgsql as $$
 begin
@@ -96,6 +125,10 @@ $$;
 
 drop trigger if exists products_updated_at on public.products;
 create trigger products_updated_at before update on public.products
+for each row execute function public.set_updated_at();
+
+drop trigger if exists store_categories_updated_at on public.store_categories;
+create trigger store_categories_updated_at before update on public.store_categories
 for each row execute function public.set_updated_at();
 
 create table if not exists public.master_admin_login_attempts (
@@ -125,12 +158,46 @@ create table if not exists public.admin_action_logs (
 
 insert into public.plan_configs (business_type, plan_type, product_limit, image_limit_kb, photo_count_limit)
 values
+  ('sari_sari', 'free', 10, 100, 3),
   ('sari_sari', 'basic', 50, 100, 20),
   ('sari_sari', 'standard', 100, 100, 40),
   ('sari_sari', 'plus', 300, 150, 120),
+  ('restaurant', 'free', 10, 300, 3),
   ('restaurant', 'basic', 50, 300, 50),
   ('restaurant', 'standard', 100, 500, 100),
-  ('restaurant', 'plus', 300, 700, 300)
+  ('restaurant', 'plus', 300, 700, 300),
+  ('bar', 'free', 10, 500, 3),
+  ('bar', 'basic', 50, 500, 20),
+  ('bar', 'standard', 100, 500, 40),
+  ('bar', 'plus', 300, 500, 120),
+  ('coffee_shop', 'free', 10, 300, 3),
+  ('coffee_shop', 'basic', 50, 300, 20),
+  ('coffee_shop', 'standard', 100, 500, 40),
+  ('coffee_shop', 'plus', 300, 500, 120),
+  ('cosmetics', 'free', 10, 500, 3),
+  ('cosmetics', 'basic', 50, 500, 20),
+  ('cosmetics', 'standard', 100, 500, 40),
+  ('cosmetics', 'plus', 300, 500, 120),
+  ('retail', 'free', 10, 500, 3),
+  ('retail', 'basic', 50, 500, 20),
+  ('retail', 'standard', 100, 500, 40),
+  ('retail', 'plus', 300, 500, 120),
+  ('pharmacy', 'free', 10, 500, 3),
+  ('pharmacy', 'basic', 50, 500, 20),
+  ('pharmacy', 'standard', 100, 500, 40),
+  ('pharmacy', 'plus', 300, 500, 120),
+  ('electronics', 'free', 10, 500, 3),
+  ('electronics', 'basic', 50, 500, 20),
+  ('electronics', 'standard', 100, 500, 40),
+  ('electronics', 'plus', 300, 500, 120),
+  ('clothing', 'free', 10, 500, 3),
+  ('clothing', 'basic', 50, 500, 20),
+  ('clothing', 'standard', 100, 500, 40),
+  ('clothing', 'plus', 300, 500, 120),
+  ('other', 'free', 10, 500, 3),
+  ('other', 'basic', 50, 500, 20),
+  ('other', 'standard', 100, 500, 40),
+  ('other', 'plus', 300, 500, 120)
 on conflict (business_type, plan_type) do update
 set product_limit = excluded.product_limit,
     image_limit_kb = excluded.image_limit_kb,
@@ -140,6 +207,7 @@ alter table public.stores enable row level security;
 alter table public.plan_configs enable row level security;
 alter table public.admin_users enable row level security;
 alter table public.products enable row level security;
+alter table public.store_categories enable row level security;
 
 drop policy if exists "public can read active stores" on public.stores;
 drop policy if exists "store admins can read own store" on public.stores;
@@ -150,6 +218,8 @@ drop policy if exists "public can read products from active stores" on public.pr
 drop policy if exists "store admins can insert own products" on public.products;
 drop policy if exists "store admins can update own products" on public.products;
 drop policy if exists "store admins can delete own products" on public.products;
+drop policy if exists "public can read active categories from active stores" on public.store_categories;
+drop policy if exists "store admins can manage own categories" on public.store_categories;
 drop policy if exists "public can read product images" on storage.objects;
 drop policy if exists "service role manages product images" on storage.objects;
 
@@ -234,6 +304,32 @@ using (
   exists (
     select 1 from public.admin_users au
     where au.store_id = products.store_id and au.auth_id = auth.uid()
+  )
+);
+
+create policy "public can read active categories from active stores"
+on public.store_categories for select
+using (
+  is_active = true
+  and exists (
+    select 1 from public.stores s
+    where s.id = store_categories.store_id and s.status = 'active'
+  )
+);
+
+create policy "store admins can manage own categories"
+on public.store_categories for all
+to authenticated
+using (
+  exists (
+    select 1 from public.admin_users au
+    where au.store_id = store_categories.store_id and au.auth_id = auth.uid()
+  )
+)
+with check (
+  exists (
+    select 1 from public.admin_users au
+    where au.store_id = store_categories.store_id and au.auth_id = auth.uid()
   )
 );
 

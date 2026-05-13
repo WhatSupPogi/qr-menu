@@ -20,6 +20,7 @@ type StoreRow = {
 
 type ProductRow = {
   id: string;
+  category_id: string | null;
   name: string;
   price: number;
   image_url: string | null;
@@ -31,6 +32,13 @@ type ProductRow = {
   description: string | null;
   display_order: number;
   created_at: string;
+};
+
+type CategoryRow = {
+  id: string;
+  name: string;
+  slug: string;
+  display_order: number;
 };
 
 function getPublicSupabase() {
@@ -71,7 +79,7 @@ const getCachedPublicStore = unstable_cache(
     const { data: products, error: productsError } = await supabase
       .from('products')
       .select(
-        'id, name, price, image_url, in_stock, is_best_seller, is_featured, promo_label, is_combo, description, display_order, created_at'
+        'id, category_id, name, price, image_url, in_stock, is_best_seller, is_featured, promo_label, is_combo, description, display_order, created_at'
       )
       .eq('store_id', store.id)
       .order('is_featured', { ascending: false })
@@ -83,9 +91,24 @@ const getCachedPublicStore = unstable_cache(
       throw new Error(productsError.message);
     }
 
+    const productCategoryIds = new Set((products || []).map((product) => product.category_id).filter(Boolean));
+
+    const { data: categories, error: categoriesError } = await supabase
+      .from('store_categories')
+      .select('id, name, slug, display_order')
+      .eq('store_id', store.id)
+      .eq('is_active', true)
+      .order('display_order', { ascending: true })
+      .order('name', { ascending: true });
+
+    if (categoriesError) {
+      throw new Error(categoriesError.message);
+    }
+
     return {
       store: store as StoreRow,
-      products: (products || []) as ProductRow[]
+      products: (products || []) as ProductRow[],
+      categories: ((categories || []).filter((category) => productCategoryIds.has(category.id))) as CategoryRow[]
     };
   },
   ['public-store-page-v3'],
@@ -102,5 +125,5 @@ export default async function PublicStorePage({ params }: { params: Promise<{ sl
     notFound();
   }
 
-  return <StoreClient store={data.store} products={data.products} />;
+  return <StoreClient store={data.store} products={data.products} categories={data.categories} />;
 }

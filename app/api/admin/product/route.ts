@@ -3,7 +3,8 @@ import { NextResponse } from 'next/server';
 import {
   getServerSupabase,
   getServiceSupabase,
-  requireStoreOwnershipBySlug
+  requireStoreOwnershipBySlug,
+  slugify
 } from '@/lib/app';
 
 const BUCKET = 'product-images';
@@ -44,9 +45,17 @@ function refreshStorePage(slug: string) {
 
 function fallbackPlanConfig(businessType: string, planType: string) {
   if (planType === 'free') {
+    if (businessType === 'restaurant' || businessType === 'coffee_shop') {
+      return { product_limit: 10, image_limit_kb: 300, photo_count_limit: 3 };
+    }
+
+    if (businessType !== 'sari_sari') {
+      return { product_limit: 10, image_limit_kb: 500, photo_count_limit: 3 };
+    }
+
     return {
       product_limit: 10,
-      image_limit_kb: businessType === 'restaurant' ? 300 : 100,
+      image_limit_kb: 100,
       photo_count_limit: 3
     };
   }
@@ -55,6 +64,18 @@ function fallbackPlanConfig(businessType: string, planType: string) {
     if (planType === 'standard') return { product_limit: 100, image_limit_kb: 300, photo_count_limit: 100 };
     if (planType === 'plus') return { product_limit: 300, image_limit_kb: 300, photo_count_limit: 300 };
     return { product_limit: 50, image_limit_kb: 300, photo_count_limit: 50 };
+  }
+
+  if (businessType === 'bar' || businessType === 'cosmetics' || businessType === 'retail' || businessType === 'pharmacy' || businessType === 'electronics' || businessType === 'clothing' || businessType === 'other') {
+    if (planType === 'standard') return { product_limit: 100, image_limit_kb: 500, photo_count_limit: 40 };
+    if (planType === 'plus') return { product_limit: 300, image_limit_kb: 500, photo_count_limit: 120 };
+    return { product_limit: 50, image_limit_kb: 500, photo_count_limit: 20 };
+  }
+
+  if (businessType === 'coffee_shop') {
+    if (planType === 'standard') return { product_limit: 100, image_limit_kb: 500, photo_count_limit: 40 };
+    if (planType === 'plus') return { product_limit: 300, image_limit_kb: 500, photo_count_limit: 120 };
+    return { product_limit: 50, image_limit_kb: 300, photo_count_limit: 20 };
   }
 
   if (planType === 'standard') return { product_limit: 100, image_limit_kb: 100, photo_count_limit: 40 };
@@ -183,6 +204,57 @@ async function removeImage(service: ReturnType<typeof getServiceSupabase>, image
   await service.storage.from(BUCKET).remove([imagePath]);
 }
 
+async function getActiveCategories(service: ReturnType<typeof getServiceSupabase>, storeId: string) {
+  const { data, error } = await service
+    .from('store_categories')
+    .select('id, name, slug, display_order, is_active')
+    .eq('store_id', storeId)
+    .eq('is_active', true)
+    .order('display_order', { ascending: true })
+    .order('name', { ascending: true });
+
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+async function getOthersCategoryId(service: ReturnType<typeof getServiceSupabase>, storeId: string) {
+  const { data: existing } = await service
+    .from('store_categories')
+    .select('id')
+    .eq('store_id', storeId)
+    .eq('slug', 'others')
+    .maybeSingle();
+
+  if (existing?.id) return existing.id as string;
+
+  const { data, error } = await service
+    .from('store_categories')
+    .insert({ store_id: storeId, name: 'Others', slug: 'others', display_order: 999, is_active: true })
+    .select('id')
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data.id as string;
+}
+
+async function resolveCategoryId(
+  service: ReturnType<typeof getServiceSupabase>,
+  storeId: string,
+  categoryId: string
+) {
+  if (!categoryId) return getOthersCategoryId(service, storeId);
+
+  const { data } = await service
+    .from('store_categories')
+    .select('id')
+    .eq('id', categoryId)
+    .eq('store_id', storeId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  return data?.id || getOthersCategoryId(service, storeId);
+}
+
 function parseBulkItems(text: string) {
   return text
     .split('\n')
@@ -190,11 +262,12 @@ function parseBulkItems(text: string) {
     .filter(Boolean)
     .map((line) => {
       const parts = line.split(',');
+      const categoryName = parts.length >= 3 ? parts.pop()?.trim() || '' : '';
       const priceText = parts.pop()?.trim() || '';
       const name = parts.join(',').trim();
       const price = Number(priceText);
 
-      return { name, price };
+      return { name, price, categoryName };
     })
     .filter((item) => item.name && Number.isFinite(item.price) && item.price >= 0);
 }
@@ -280,7 +353,7 @@ export async function GET(request: Request) {
   const { data: products, error: productsError } = await service
     .from('products')
     .select(
-      'id, store_id, name, price, image_url, image_path, in_stock, is_best_seller, is_featured, promo_label, is_combo, description, display_order, created_at, updated_at'
+      'id, store_id, category_id, name, price, image_url, image_path, in_stock, is_best_seller, is_featured, promo_label, is_combo, description, display_order, created_at, updated_at'
     )
     .eq('store_id', safeStore.id)
     .order('is_featured', { ascending: false })
@@ -294,6 +367,9 @@ export async function GET(request: Request) {
     .eq('store_id', safeStore.id)
     .order('created_at', { ascending: false })
     .limit(5);
+
+  const categories = await getActiveCategories(service, safeStore.id);
+  const categoryNames = new Map(categories.map((category: any) => [category.id, category.name]));
 
   if (productsError) {
     return NextResponse.json({
@@ -311,7 +387,11 @@ export async function GET(request: Request) {
     adminUser,
     plan,
     usage,
-    products: products || [],
+    categories,
+    products: (products || []).map((product: any) => ({
+      ...product,
+      category_name: product.category_id ? categoryNames.get(product.category_id) || '' : ''
+    })),
     paymentRequests: paymentRequests || []
   });
 }
@@ -378,15 +458,92 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true });
     }
 
+    if (mode === 'category_save') {
+      const categoryId = String(form.get('category_id') || '').trim();
+      const name = String(form.get('category_name') || '').trim().slice(0, 60);
+      const displayOrder = toNumber(form.get('category_display_order'));
+      const categorySlug = slugify(name);
+
+      if (!name || !categorySlug) {
+        return NextResponse.json({ error: 'Category name is required.' }, { status: 400 });
+      }
+
+      if (categoryId) {
+        const { error } = await service
+          .from('store_categories')
+          .update({ name, slug: categorySlug, display_order: displayOrder, is_active: true })
+          .eq('id', categoryId)
+          .eq('store_id', owned.store.id);
+
+        if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+      } else {
+        const { data: existing } = await service
+          .from('store_categories')
+          .select('id')
+          .eq('store_id', owned.store.id)
+          .eq('slug', categorySlug)
+          .maybeSingle();
+
+        if (existing?.id) {
+          const { error } = await service
+            .from('store_categories')
+            .update({ name, display_order: displayOrder, is_active: true })
+            .eq('id', existing.id)
+            .eq('store_id', owned.store.id);
+
+          if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+        } else {
+          const { error } = await service
+            .from('store_categories')
+            .insert({
+              store_id: owned.store.id,
+              name,
+              slug: categorySlug,
+              display_order: displayOrder,
+              is_active: true
+            });
+
+          if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+        }
+      }
+
+      refreshStorePage(slug);
+      return NextResponse.json({ ok: true });
+    }
+
+    if (mode === 'category_deactivate') {
+      const categoryId = String(form.get('category_id') || '').trim();
+
+      if (!categoryId) {
+        return NextResponse.json({ error: 'Missing category id.' }, { status: 400 });
+      }
+
+      const { error } = await service
+        .from('store_categories')
+        .update({ is_active: false })
+        .eq('id', categoryId)
+        .eq('store_id', owned.store.id);
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+      refreshStorePage(slug);
+      return NextResponse.json({ ok: true });
+    }
+
     if (mode === 'bulk_create') {
       const store = storePayload(owned.store);
       const plan = await getPlan(service, store.business_type, store.plan_type);
       const usage = await getUsage(service, store.id);
       const bulkText = String(form.get('bulk_items') || '');
       const items = parseBulkItems(bulkText);
+      const categories = await getActiveCategories(service, store.id);
+      const categoryByName = new Map(
+        categories.map((category: any) => [String(category.name || '').trim().toLowerCase(), category.id])
+      );
+      const othersId = await getOthersCategoryId(service, store.id);
 
       if (items.length === 0) {
-        return NextResponse.json({ error: 'Please add items using: Item name, price' }, { status: 400 });
+        return NextResponse.json({ error: 'Please add items using: Item name, price, category' }, { status: 400 });
       }
 
       if (usage.productCount + items.length > plan.product_limit) {
@@ -396,6 +553,7 @@ export async function POST(request: Request) {
       const { error } = await service.from('products').insert(
         items.map((item, index) => ({
           store_id: store.id,
+          category_id: item.categoryName ? categoryByName.get(item.categoryName.toLowerCase()) || othersId : othersId,
           name: item.name,
           price: item.price,
           in_stock: true,
@@ -452,6 +610,7 @@ export async function POST(request: Request) {
     const isCombo = toBool(form.get('is_combo'));
     const description = String(form.get('description') || '').trim().slice(0, 250);
     const displayOrder = toNumber(form.get('display_order'));
+    const requestedCategoryId = String(form.get('category_id') || '').trim();
 
     if (!name) {
       return NextResponse.json({ error: 'Item name is required.' }, { status: 400 });
@@ -464,6 +623,7 @@ export async function POST(request: Request) {
     const store = storePayload(owned.store);
     const plan = await getPlan(service, store.business_type, store.plan_type);
     const usage = await getUsage(service, store.id);
+    const categoryId = await resolveCategoryId(service, store.id, requestedCategoryId);
 
     const lockedMessage = checkLockedFeatures({
       planType: store.plan_type,
@@ -519,6 +679,7 @@ export async function POST(request: Request) {
         is_best_seller: isBestSeller,
         is_featured: isFeatured,
         promo_label: promoLabel,
+        category_id: categoryId,
         is_combo: isCombo,
         description,
         display_order: displayOrder
@@ -558,6 +719,7 @@ export async function POST(request: Request) {
         price,
         image_url: uploaded.image_url,
         image_path: uploaded.image_path,
+        category_id: categoryId,
         in_stock: inStock,
         is_best_seller: isBestSeller,
         is_featured: isFeatured,
