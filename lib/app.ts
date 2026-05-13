@@ -97,6 +97,14 @@ export type PlanConfigRow = {
   photo_count_limit: number;
 };
 
+export function getUnifiedPlanConfig(planType: string): Omit<PlanConfigRow, 'id' | 'business_type' | 'plan_type'> {
+  if (planType === 'unli') return { product_limit: 999999, image_limit_kb: 100, photo_count_limit: 999999 };
+  if (planType === 'plus') return { product_limit: 300, image_limit_kb: 100, photo_count_limit: 300 };
+  if (planType === 'standard') return { product_limit: 100, image_limit_kb: 100, photo_count_limit: 100 };
+  if (planType === 'basic') return { product_limit: 50, image_limit_kb: 100, photo_count_limit: 50 };
+  return { product_limit: 10, image_limit_kb: 100, photo_count_limit: 10 };
+}
+
 function env(name: string) {
   const value = process.env[name];
   if (!value) throw new Error(`Missing env: ${name}`);
@@ -284,14 +292,19 @@ export async function getPlanConfigByStoreId(supabase: SupabaseClient, storeId: 
     .single();
   if (storeError) throw storeError;
 
-  const { data: plan, error: planError } = await supabase
+  await supabase
     .from('plan_configs')
     .select('*')
     .eq('business_type', store.business_type)
     .eq('plan_type', store.plan_type)
     .single();
-  if (planError) throw planError;
-  return plan as PlanConfigRow;
+
+  return {
+    id: '',
+    business_type: store.business_type,
+    plan_type: store.plan_type,
+    ...getUnifiedPlanConfig(store.plan_type)
+  } as PlanConfigRow;
 }
 
 export async function getStoreUsage(supabase: SupabaseClient, storeId: string) {

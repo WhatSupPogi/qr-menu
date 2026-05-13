@@ -28,12 +28,14 @@ check (promo_label in ('none', 'HOT', 'SALE', 'NEW'));
 
 insert into public.plan_configs (business_type, plan_type, product_limit, image_limit_kb, photo_count_limit)
 values
-  ('sari_sari', 'basic', 50, 100, 20),
-  ('sari_sari', 'standard', 100, 100, 40),
-  ('sari_sari', 'plus', 300, 150, 120),
-  ('restaurant', 'basic', 50, 300, 50),
-  ('restaurant', 'standard', 100, 500, 100),
-  ('restaurant', 'plus', 300, 700, 300)
+  ('sari_sari', 'basic', 50, 100, 50),
+  ('sari_sari', 'standard', 100, 100, 100),
+  ('sari_sari', 'plus', 300, 100, 300),
+  ('sari_sari', 'unli', 999999, 100, 999999),
+  ('restaurant', 'basic', 50, 100, 50),
+  ('restaurant', 'standard', 100, 100, 100),
+  ('restaurant', 'plus', 300, 100, 300),
+  ('restaurant', 'unli', 999999, 100, 999999)
 on conflict (business_type, plan_type) do update
 set product_limit = excluded.product_limit,
     image_limit_kb = excluded.image_limit_kb,

@@ -1,49 +1,31 @@
 alter table public.stores
-drop constraint if exists stores_business_type_check;
-
-alter table public.stores
 drop constraint if exists stores_plan_type_check;
-
-alter table public.stores
-add constraint stores_business_type_check
-check (business_type in ('sari_sari', 'restaurant', 'bar', 'coffee_shop', 'cosmetics', 'retail', 'pharmacy', 'electronics', 'clothing', 'other'));
 
 alter table public.stores
 add constraint stores_plan_type_check
 check (plan_type in ('free', 'basic', 'standard', 'plus', 'unli'));
 
-alter table public.plan_configs
-drop constraint if exists plan_configs_business_type_check;
+alter table public.stores
+alter column plan_type set default 'free';
 
 alter table public.plan_configs
 drop constraint if exists plan_configs_plan_type_check;
 
 alter table public.plan_configs
-add constraint plan_configs_business_type_check
-check (business_type in ('sari_sari', 'restaurant', 'bar', 'coffee_shop', 'cosmetics', 'retail', 'pharmacy', 'electronics', 'clothing', 'other'));
-
-alter table public.plan_configs
 add constraint plan_configs_plan_type_check
 check (plan_type in ('free', 'basic', 'standard', 'plus', 'unli'));
 
-create table if not exists public.store_categories (
-  id uuid primary key default gen_random_uuid(),
-  store_id uuid not null references public.stores(id) on delete cascade,
-  name text not null,
-  slug text not null,
-  display_order integer not null default 0,
-  is_active boolean not null default true,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique (store_id, slug)
-);
+do $$
+begin
+  if to_regclass('public.payment_requests') is not null then
+    alter table public.payment_requests
+    drop constraint if exists payment_requests_plan_type_check;
 
-alter table public.products
-add column if not exists category_id uuid references public.store_categories(id) on delete set null;
-
-drop trigger if exists store_categories_updated_at on public.store_categories;
-create trigger store_categories_updated_at before update on public.store_categories
-for each row execute function public.set_updated_at();
+    alter table public.payment_requests
+    add constraint payment_requests_plan_type_check
+    check (plan_type in ('basic', 'standard', 'plus', 'unli'));
+  end if;
+end $$;
 
 insert into public.plan_configs (business_type, plan_type, product_limit, image_limit_kb, photo_count_limit)
 values
@@ -101,34 +83,3 @@ on conflict (business_type, plan_type) do update
 set product_limit = excluded.product_limit,
     image_limit_kb = excluded.image_limit_kb,
     photo_count_limit = excluded.photo_count_limit;
-
-alter table public.store_categories enable row level security;
-
-drop policy if exists "public can read active categories from active stores" on public.store_categories;
-drop policy if exists "store admins can manage own categories" on public.store_categories;
-
-create policy "public can read active categories from active stores"
-on public.store_categories for select
-using (
-  is_active = true
-  and exists (
-    select 1 from public.stores s
-    where s.id = store_categories.store_id and s.status = 'active'
-  )
-);
-
-create policy "store admins can manage own categories"
-on public.store_categories for all
-to authenticated
-using (
-  exists (
-    select 1 from public.admin_users au
-    where au.store_id = store_categories.store_id and au.auth_id = auth.uid()
-  )
-)
-with check (
-  exists (
-    select 1 from public.admin_users au
-    where au.store_id = store_categories.store_id and au.auth_id = auth.uid()
-  )
-);

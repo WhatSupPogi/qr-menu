@@ -1,8 +1,8 @@
 alter table public.stores drop constraint if exists stores_plan_type_check;
-alter table public.stores add constraint stores_plan_type_check check (plan_type in ('free','basic','standard','plus'));
+alter table public.stores add constraint stores_plan_type_check check (plan_type in ('free','basic','standard','plus','unli'));
 alter table public.stores alter column plan_type set default 'free';
 alter table public.plan_configs drop constraint if exists plan_configs_plan_type_check;
-alter table public.plan_configs add constraint plan_configs_plan_type_check check (plan_type in ('free','basic','standard','plus'));
+alter table public.plan_configs add constraint plan_configs_plan_type_check check (plan_type in ('free','basic','standard','plus','unli'));
 alter table public.stores add column if not exists promo_banner text;
 alter table public.products add column if not exists image_path text;
 alter table public.products add column if not exists is_best_seller boolean not null default false;
@@ -15,14 +15,14 @@ alter table public.products drop constraint if exists products_promo_label_check
 alter table public.products add constraint products_promo_label_check check (promo_label in ('none','HOT','SALE','NEW'));
 insert into public.plan_configs (business_type, plan_type, product_limit, image_limit_kb, photo_count_limit)
 values
- ('sari_sari','free',10,100,3),('sari_sari','basic',50,100,20),('sari_sari','standard',100,100,40),('sari_sari','plus',300,150,120),
- ('restaurant','free',10,300,3),('restaurant','basic',50,300,50),('restaurant','standard',100,300,100),('restaurant','plus',300,300,300)
+ ('sari_sari','free',10,100,10),('sari_sari','basic',50,100,50),('sari_sari','standard',100,100,100),('sari_sari','plus',300,100,300),('sari_sari','unli',999999,100,999999),
+ ('restaurant','free',10,100,10),('restaurant','basic',50,100,50),('restaurant','standard',100,100,100),('restaurant','plus',300,100,300),('restaurant','unli',999999,100,999999)
 on conflict (business_type, plan_type) do update
 set product_limit=excluded.product_limit,image_limit_kb=excluded.image_limit_kb,photo_count_limit=excluded.photo_count_limit;
 create table if not exists public.payment_requests (
  id uuid primary key default gen_random_uuid(),
  store_id uuid not null references public.stores(id) on delete cascade,
- plan_type text not null check (plan_type in ('basic','standard','plus')),
+ plan_type text not null check (plan_type in ('basic','standard','plus','unli')),
  payment_method text not null check (payment_method in ('GCash','GoTyme','Bank')),
  reference_number text not null,
  proof_image_url text,

@@ -488,7 +488,7 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
   }
 
   const store = data.store;
-  const plan = data.plan || { product_limit: 10, image_limit_kb: 100, photo_count_limit: 3 };
+  const plan = data.plan || { product_limit: 10, image_limit_kb: 100, photo_count_limit: 10 };
   const usage = data.usage || { productCount: 0, imageCount: 0 };
   const products = data.products || [];
   const categories = data.categories || [];
@@ -530,11 +530,15 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
         </div>
         <div className="card stat-card">
           <div className="muted">Items</div>
-          <div className="kpi small-kpi">{usage.productCount}/{plan.product_limit}</div>
+          <div className="kpi small-kpi">{formatLimit(plan.product_limit) === 'Unlimited' ? 'Unlimited' : `${usage.productCount}/${formatLimit(plan.product_limit)}`}</div>
         </div>
         <div className="card stat-card">
           <div className="muted">Images</div>
-          <div className="kpi small-kpi">{usage.imageCount}/{plan.photo_count_limit}</div>
+          <div className="kpi small-kpi">{formatLimit(plan.photo_count_limit) === 'Unlimited' ? 'Unlimited' : `${usage.imageCount}/${formatLimit(plan.photo_count_limit)}`}</div>
+        </div>
+        <div className="card stat-card">
+          <div className="muted">Image Limit</div>
+          <div className="kpi small-kpi">{plan.image_limit_kb}KB</div>
         </div>
       </section>
 
@@ -569,6 +573,7 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
                 <option value="basic">Basic</option>
                 <option value="standard">Standard</option>
                 <option value="plus">Plus</option>
+                <option value="unli">Unli</option>
               </select>
             </label>
 

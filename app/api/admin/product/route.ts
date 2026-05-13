@@ -43,7 +43,7 @@ function refreshStorePage(slug: string) {
   revalidatePath(`/store/${slug}`);
 }
 
-function fallbackPlanConfig(businessType: string, planType: string) {
+function fallbackPlanConfig(_businessType: string, planType: string) {
   if (planType === 'unli') return { product_limit: 999999, image_limit_kb: 100, photo_count_limit: 999999 };
   if (planType === 'plus') return { product_limit: 300, image_limit_kb: 100, photo_count_limit: 300 };
   if (planType === 'standard') return { product_limit: 100, image_limit_kb: 100, photo_count_limit: 100 };
@@ -54,20 +54,14 @@ function fallbackPlanConfig(businessType: string, planType: string) {
 async function getPlan(service: ReturnType<typeof getServiceSupabase>, businessType: string, planType: string) {
   const fallback = fallbackPlanConfig(businessType, planType);
 
-  const { data } = await service
+  await service
     .from('plan_configs')
     .select('product_limit, image_limit_kb, photo_count_limit')
     .eq('business_type', businessType)
     .eq('plan_type', planType)
     .maybeSingle();
 
-  if (!data) return fallback;
-
-  return {
-    product_limit: Number(data.product_limit || fallback.product_limit),
-    image_limit_kb: Number(data.image_limit_kb || fallback.image_limit_kb),
-    photo_count_limit: Number(data.photo_count_limit || fallback.photo_count_limit)
-  };
+  return fallback;
 }
 
 async function getUsage(service: ReturnType<typeof getServiceSupabase>, storeId: string) {
