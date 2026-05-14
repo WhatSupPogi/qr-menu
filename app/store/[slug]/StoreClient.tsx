@@ -45,22 +45,23 @@ function money(value: number) {
 const styles: Record<string, React.CSSProperties> = {
   page: {
     minHeight: '100vh',
-    background: '#f4f6f3',
+    background: 'linear-gradient(180deg, #f7faf6 0%, #edf4ec 100%)',
     color: '#172019',
-    padding: '16px',
+    padding: '12px',
     fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif'
   },
   shell: {
     width: '100%',
-    maxWidth: '1100px',
+    maxWidth: '980px',
     margin: '0 auto'
   },
   hero: {
-    background: '#244b3a',
+    background: 'linear-gradient(135deg, #1f4233 0%, #2f6b4f 100%)',
     color: '#ffffff',
-    borderRadius: '14px',
-    padding: '24px',
-    boxShadow: '0 16px 36px rgba(36, 75, 58, 0.2)'
+    borderRadius: '18px',
+    padding: '22px',
+    border: '1px solid rgba(255,255,255,0.14)',
+    boxShadow: '0 18px 42px rgba(36, 75, 58, 0.24)'
   },
   eyebrow: {
     margin: 0,
@@ -72,8 +73,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   title: {
     margin: '12px 0 0',
-    fontSize: '42px',
-    lineHeight: 1,
+    fontSize: '38px',
+    lineHeight: 1.05,
     fontWeight: 900,
     letterSpacing: 0,
     overflowWrap: 'anywhere'
@@ -85,8 +86,8 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: '16px'
   },
   metaPill: {
-    background: 'rgba(255,255,255,0.12)',
-    color: '#e2e8f0',
+    background: 'rgba(255,255,255,0.16)',
+    color: '#edf7f0',
     borderRadius: '999px',
     padding: '8px 12px',
     fontSize: '14px',
@@ -95,12 +96,13 @@ const styles: Record<string, React.CSSProperties> = {
   promo: {
     marginTop: '18px',
     background: '#f0b45a',
-    borderRadius: '10px',
-    padding: '14px 16px',
+    borderRadius: '14px',
+    padding: '15px 16px',
     color: '#172019',
     fontWeight: 900,
     fontSize: '17px',
-    boxShadow: '0 10px 24px rgba(240,180,90,0.22)'
+    lineHeight: 1.35,
+    boxShadow: '0 12px 28px rgba(240,180,90,0.25)'
   },
   contactButton: {
     display: 'inline-flex',
@@ -109,12 +111,13 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: '16px',
     background: '#ffffff',
     color: '#244b3a',
-    borderRadius: '10px',
-    padding: '13px 16px',
+    borderRadius: '999px',
+    minHeight: '48px',
+    padding: '13px 18px',
     fontWeight: 900,
     fontSize: '16px',
     textDecoration: 'none',
-    boxShadow: '0 10px 24px rgba(23,32,25,0.14)'
+    boxShadow: '0 12px 26px rgba(23,32,25,0.16)'
   },
   searchBox: {
     position: 'sticky',
@@ -123,7 +126,7 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: '16px',
     background: 'rgba(255,255,255,0.96)',
     border: '1px solid #dfe5dd',
-    borderRadius: '12px',
+    borderRadius: '16px',
     padding: '12px',
     boxShadow: '0 8px 20px rgba(23,32,25,0.08)',
     backdropFilter: 'blur(8px)'
@@ -132,9 +135,9 @@ const styles: Record<string, React.CSSProperties> = {
     width: '100%',
     boxSizing: 'border-box',
     border: '1px solid #ccd6cc',
-    borderRadius: '10px',
+    borderRadius: '12px',
     padding: '15px 16px',
-    fontSize: '18px',
+    fontSize: '17px',
     fontWeight: 700,
     outline: 'none',
     background: '#ffffff',
@@ -144,13 +147,14 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     gap: '8px',
     overflowX: 'auto',
-    padding: '4px 0',
+    padding: '4px 0 2px',
     marginTop: '14px'
   },
   tab: {
     border: '1px solid #cbd5e1',
     borderRadius: '999px',
-    padding: '9px 13px',
+    minHeight: '40px',
+    padding: '9px 14px',
     background: '#ffffff',
     color: '#33443a',
     fontWeight: 900,
@@ -164,14 +168,24 @@ const styles: Record<string, React.CSSProperties> = {
   },
   grid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))',
-    gap: '16px',
-    marginTop: '18px'
+    gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+    gap: '14px',
+    marginTop: '14px'
+  },
+  summary: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '12px',
+    marginTop: '14px',
+    color: '#536258',
+    fontSize: '14px',
+    fontWeight: 800
   },
   empty: {
     background: '#ffffff',
     border: '1px dashed #cbd5e1',
-    borderRadius: '12px',
+    borderRadius: '16px',
     padding: '32px',
     textAlign: 'center',
     color: '#64748b',
@@ -180,9 +194,9 @@ const styles: Record<string, React.CSSProperties> = {
   card: {
     background: '#ffffff',
     border: '1px solid #dfe5dd',
-    borderRadius: '12px',
+    borderRadius: '16px',
     overflow: 'hidden',
-    boxShadow: '0 10px 28px rgba(23,32,25,0.07)'
+    boxShadow: '0 12px 30px rgba(23,32,25,0.08)'
   },
   cardOut: {
     opacity: 0.58
@@ -190,8 +204,8 @@ const styles: Record<string, React.CSSProperties> = {
   imageWrap: {
     position: 'relative',
     width: '100%',
-    aspectRatio: '4 / 3',
-    background: '#e2e8f0',
+    aspectRatio: '1 / 1',
+    background: '#e7ede5',
     overflow: 'hidden'
   },
   image: {
@@ -221,7 +235,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 900
   },
   body: {
-    padding: '16px'
+    padding: '15px'
   },
   badgeRow: {
     display: 'flex',
@@ -254,25 +268,23 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#286245'
   },
   productHead: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: '12px'
+    display: 'grid',
+    gap: '10px'
   },
   productName: {
     margin: 0,
-    fontSize: '22px',
-    lineHeight: 1.12,
+    fontSize: '21px',
+    lineHeight: 1.15,
     fontWeight: 900,
     letterSpacing: 0
   },
   price: {
-    flexShrink: 0,
     background: '#eef7f0',
-    borderRadius: '10px',
+    borderRadius: '999px',
     padding: '10px 12px',
     fontSize: '18px',
-    fontWeight: 900
+    fontWeight: 900,
+    width: 'fit-content'
   },
   description: {
     margin: '12px 0 0',
@@ -406,6 +418,11 @@ export default function StoreClient({
             </div>
           ) : null}
         </section>
+
+        <div style={styles.summary}>
+          <span>{filteredProducts.length === 1 ? '1 item available' : `${filteredProducts.length} items available`}</span>
+          {activeCategory !== 'all' ? <span>Filtered</span> : null}
+        </div>
 
         <section style={styles.grid}>
           {filteredProducts.length === 0 ? (

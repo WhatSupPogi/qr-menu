@@ -1,0 +1,20 @@
+Phase 1 변경 파일 요약
+
+1. app/store/[slug]/StoreClient.tsx
+- 공개 고객용 스토어 페이지의 시각 스타일을 모바일 우선으로 다듬었습니다.
+- 상단 스토어 헤더, 프로모션 배너, 공개 연락 버튼, 검색 박스, 카테고리 탭, 상품 카드 스타일을 개선했습니다.
+- 검색과 카테고리 필터가 함께 동작하는 기존 로직은 유지했습니다.
+- 상품 정렬, 배지 표시, 품절 표시, lazy 이미지 로딩은 유지했습니다.
+- Product Detail Modal, Add to Cart, DB/SQL, 서버 로직은 변경하지 않았습니다.
+
+2. docs/CHANGED_FILES_KR.txt
+- 이번 Phase 1에서 변경된 파일과 범위를 기록했습니다.
+
+3. docs/TESTING_GUIDE_KR.txt
+- 공개 스토어 UI 변경 후 확인해야 할 테스트 항목을 정리했습니다.
+
+변경하지 않은 항목
+- app/globals.css는 변경하지 않았습니다.
+- app/admin/[slug]/page.tsx는 변경하지 않았습니다.
+- Supabase SQL 및 schema 파일은 변경하지 않았습니다.
+- 비즈니스 타입/카테고리 DB 로직은 변경하지 않았습니다.
