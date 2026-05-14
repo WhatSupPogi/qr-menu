@@ -1,20 +1,29 @@
-Phase 1 변경 파일 요약
+Store Admin Compact UX 변경 파일
 
-1. app/store/[slug]/StoreClient.tsx
-- 공개 고객용 스토어 페이지의 시각 스타일을 모바일 우선으로 다듬었습니다.
-- 상단 스토어 헤더, 프로모션 배너, 공개 연락 버튼, 검색 박스, 카테고리 탭, 상품 카드 스타일을 개선했습니다.
-- 검색과 카테고리 필터가 함께 동작하는 기존 로직은 유지했습니다.
-- 상품 정렬, 배지 표시, 품절 표시, lazy 이미지 로딩은 유지했습니다.
-- Product Detail Modal, Add to Cart, DB/SQL, 서버 로직은 변경하지 않았습니다.
+1. app/admin/[slug]/page.tsx
+- Store Admin 화면에 compact UX 전용 className을 추가했습니다.
+- 상단 Open Store Page, Download QR, Sign Out 버튼을 모바일에서 더 작은 pill 버튼으로 보이도록 분리했습니다.
+- 3-Minute Setup 영역을 compact chip 레이아웃으로 바꿀 수 있게 구조를 정리했습니다.
+- Current Plan, Items, Images, Image Limit 카드에 compact className을 추가했습니다.
+- Upgrade Plan 카드와 Add Item 폼에 compact className을 추가했습니다.
+- Add Item 폼은 Item Name/Description/Image는 넓게 유지하고, Price/Category/Display Order/Stock Status는 2열 compact 레이아웃을 사용할 수 있게 했습니다.
+- Upload from Gallery, Take Photo, Clear Image 버튼은 모바일에서 가로 스크롤 가능한 compact 버튼 줄로 정리했습니다.
+- Bulk Add Items textarea 기본 높이를 줄였습니다.
 
-2. docs/CHANGED_FILES_KR.txt
-- 이번 Phase 1에서 변경된 파일과 범위를 기록했습니다.
+2. app/globals.css
+- Store Admin 전용 compact 스타일만 추가했습니다.
+- 공개 고객용 Store page 및 public product card 크기는 변경하지 않았습니다.
+- 모바일 390px 전후에서 header buttons, setup chips, stat cards, add item form, image upload section이 더 짧게 보이도록 조정했습니다.
 
-3. docs/TESTING_GUIDE_KR.txt
-- 공개 스토어 UI 변경 후 확인해야 할 테스트 항목을 정리했습니다.
+3. docs/CHANGED_FILES_KR.txt
+- 이번 변경 범위와 파일 목록을 기록했습니다.
+
+4. docs/TESTING_GUIDE_KR.txt
+- Store Admin compact UX 확인 절차를 기록했습니다.
 
 변경하지 않은 항목
-- app/globals.css는 변경하지 않았습니다.
-- app/admin/[slug]/page.tsx는 변경하지 않았습니다.
-- Supabase SQL 및 schema 파일은 변경하지 않았습니다.
-- 비즈니스 타입/카테고리 DB 로직은 변경하지 않았습니다.
+- 공개 고객용 store page는 수정하지 않았습니다.
+- 공개 product card 크기는 변경하지 않았습니다.
+- API, database, SQL, Supabase schema는 변경하지 않았습니다.
+- 새 기능은 추가하지 않았습니다.
+- 기존 Store Admin 기능은 제거하지 않았습니다.

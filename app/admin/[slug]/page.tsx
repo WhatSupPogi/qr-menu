@@ -497,14 +497,14 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
   const filteredProducts = products.filter((p: Product) => p.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <main className="container admin-shell">
-      <section className="header-card">
+    <main className="container admin-shell admin-compact-shell">
+      <section className="header-card admin-compact-header">
         <div>
           <h1 className="page-title">{store?.name || slug}</h1>
           <p className="muted">Set up your QR menu in 3 minutes.</p>
         </div>
 
-        <div className="inline-actions wrap-actions">
+        <div className="inline-actions wrap-actions admin-top-actions">
           <a className="button secondary fit-button" href={`/store/${slug}`} target="_blank" rel="noreferrer">Open Store Page</a>
           <a className="button secondary fit-button" href={`/api/admin/qr?slug=${encodeURIComponent(slug)}`}>Download QR</a>
           <button className="button secondary fit-button" type="button" onClick={signOut}>Sign Out</button>
@@ -514,36 +514,36 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
       {message ? <div className="success">{message}</div> : null}
       {error ? <div className="error">{error}</div> : null}
 
-      <section className="card">
+      <section className="card admin-setup-card">
         <h2 className="section-title">3-Minute Setup</h2>
-        <div className="grid grid-3">
-          <div className="notice">Step 1: Add store info</div>
-          <div className="notice">Step 2: Add items</div>
-          <div className="notice">Step 3: Download QR code</div>
+        <div className="admin-step-grid">
+          <div className="notice admin-step-chip">Step 1: Add store info</div>
+          <div className="notice admin-step-chip">Step 2: Add items</div>
+          <div className="notice admin-step-chip">Step 3: Download QR code</div>
         </div>
       </section>
 
-      <section className="stats-grid">
-        <div className="card stat-card">
+      <section className="stats-grid admin-stats-grid">
+        <div className="card stat-card admin-stat-card">
           <div className="muted">Current Plan</div>
           <div className="kpi small-kpi">{titleCase(store?.plan_type)}</div>
         </div>
-        <div className="card stat-card">
+        <div className="card stat-card admin-stat-card">
           <div className="muted">Items</div>
           <div className="kpi small-kpi">{formatLimit(plan.product_limit) === 'Unlimited' ? 'Unlimited' : `${usage.productCount}/${formatLimit(plan.product_limit)}`}</div>
         </div>
-        <div className="card stat-card">
+        <div className="card stat-card admin-stat-card">
           <div className="muted">Images</div>
           <div className="kpi small-kpi">{formatLimit(plan.photo_count_limit) === 'Unlimited' ? 'Unlimited' : `${usage.imageCount}/${formatLimit(plan.photo_count_limit)}`}</div>
         </div>
-        <div className="card stat-card">
+        <div className="card stat-card admin-stat-card">
           <div className="muted">Image Limit</div>
           <div className="kpi small-kpi">{plan.image_limit_kb}KB</div>
         </div>
       </section>
 
       {isFree ? (
-        <section className="card upgrade-card">
+        <section className="card upgrade-card admin-upgrade-card">
           <h2 className="section-title">Free Plan</h2>
           <p className="muted">You can add up to 10 items. Upgrade to unlock Best Seller, Featured items, Promo Labels, and more items.</p>
           <button className="button" type="button" onClick={() => showUpgrade('Upgrade your plan to unlock more features and increase your sales.')}>
@@ -551,7 +551,7 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
           </button>
         </section>
       ) : (
-        <section className="card upgrade-card">
+        <section className="card upgrade-card admin-upgrade-card">
           <h2 className="section-title">Need more sales tools?</h2>
           <p className="muted">Upgrade anytime to get more item space and stronger selling features.</p>
           <button className="button secondary" type="button" onClick={() => showUpgrade('Upgrade your plan to unlock more features and increase your sales.')}>
@@ -766,12 +766,12 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
         </div>
       </section>
 
-      <section className="card form-card">
+      <section className="card form-card admin-add-item-card">
         <h2 className="section-title">{editingId ? 'Edit Item' : 'Add Item'}</h2>
         <p className="muted">Photo is optional. For common products, name and price are enough. You can add photos later.</p>
 
-        <form className="grid grid-2" onSubmit={submitProduct}>
-          <label>
+        <form className="grid admin-item-form" onSubmit={submitProduct}>
+          <label className="admin-span-full">
             Item Name
             <input className="input" name="name" value={formValues.name} onChange={(e) => setFormValues((prev) => ({ ...prev, name: e.target.value }))} required />
           </label>
@@ -803,9 +803,9 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
             </select>
           </label>
 
-          <div style={{ gridColumn: '1 / -1' }}>
+          <div className="admin-span-full admin-image-section">
             <label>Image</label>
-            <div className="inline-actions wrap-actions" style={{ marginTop: 8 }}>
+            <div className="inline-actions wrap-actions admin-upload-actions">
               <button className="button secondary fit-button" type="button" onClick={() => galleryInputRef.current?.click()}>
                 Upload from Gallery
               </button>
@@ -822,7 +822,7 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
             <input ref={galleryInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleImage(e.target.files?.[0])} />
             <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={(e) => handleImage(e.target.files?.[0])} />
 
-            <div className="notice" style={{ marginTop: 10 }}>{imageMessage}</div>
+            <div className="notice admin-image-message">{imageMessage}</div>
           </div>
 
           <label>
@@ -835,30 +835,30 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
             </select>
           </label>
 
-          <label style={{ gridColumn: '1 / -1' }}>
+          <label className="admin-span-full">
             Description
             <textarea className="input" name="description" value={formValues.description} onChange={(e) => setFormValues((prev) => ({ ...prev, description: e.target.value }))} rows={3} />
           </label>
 
-          <label className="check-card">
+          <label className="check-card admin-compact-check">
             <input name="is_featured" type="checkbox" checked={formValues.is_featured} disabled={isFree} onChange={(e) => setFormValues((prev) => ({ ...prev, is_featured: e.target.checked }))} />
             <strong>Featured</strong>
             <span>{isFree ? 'Upgrade required' : 'Show near the top'}</span>
           </label>
 
-          <label className="check-card">
+          <label className="check-card admin-compact-check">
             <input name="is_best_seller" type="checkbox" checked={formValues.is_best_seller} disabled={isFree} onChange={(e) => setFormValues((prev) => ({ ...prev, is_best_seller: e.target.checked }))} />
             <strong>Best Seller</strong>
             <span>{isFree ? 'Upgrade required' : 'Show a strong badge'}</span>
           </label>
 
-          <label className="check-card">
+          <label className="check-card admin-compact-check">
             <input name="is_combo" type="checkbox" checked={formValues.is_combo} onChange={(e) => setFormValues((prev) => ({ ...prev, is_combo: e.target.checked }))} />
             <strong>Combo</strong>
             <span>Use for bundle offers</span>
           </label>
 
-          <div className="inline-actions" style={{ gridColumn: '1 / -1' }}>
+          <div className="inline-actions admin-span-full">
             <button className="button" type="submit">{editingId ? 'Save Changes' : 'Add Item'}</button>
             {editingId ? (
               <button className="button secondary" type="button" onClick={() => { setEditingId(null); setFormValues(EMPTY_FORM); resetImage(); }}>
@@ -869,13 +869,13 @@ export default function StoreAdminPage({ params }: { params: Promise<{ slug: str
         </form>
       </section>
 
-      <section className="card form-card">
+      <section className="card form-card admin-bulk-card">
         <h2 className="section-title">Bulk Add Items</h2>
         <p className="muted">Add many items fast. Format: Item name, price, category</p>
         <form className="grid" onSubmit={submitBulk}>
           <textarea
             className="input"
-            rows={7}
+            rows={4}
             placeholder={'Coke 1.5L, 95, Drinks\nLucky Me Pancit Canton, 18, Snacks\nBurger, 100'}
             value={bulkItems}
             onChange={(e) => setBulkItems(e.target.value)}

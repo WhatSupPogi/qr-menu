@@ -1,35 +1,47 @@
-Phase 1 테스트 가이드
+Store Admin Compact UX 테스트 가이드
 
-1. 빌드 확인
-- npm.cmd run build 실행 결과가 성공인지 확인합니다.
+1. 개발 서버 확인
+- npm run dev 실행 후 Store Admin URL인 /admin/[slug]로 접속합니다.
 
-2. 공개 스토어 페이지 확인
-- /store/[slug] 페이지를 엽니다.
-- 스토어 이름, 위치, 프로모션 배너가 정상적으로 표시되는지 확인합니다.
-- 프로모션 배너가 없는 스토어에서도 레이아웃이 깨지지 않는지 확인합니다.
+2. 모바일 폭 확인
+- 브라우저 개발자 도구에서 화면 폭을 약 390px로 설정합니다.
+- 상단 Store Admin header가 너무 길게 늘어나지 않는지 확인합니다.
+- Open Store Page, Download QR, Sign Out 버튼이 compact pill 형태로 보이고, 좁은 화면에서는 가로 스크롤로 접근 가능한지 확인합니다.
 
-3. 공개 연락 버튼 확인
-- Store Admin에서 공개 연락 버튼이 활성화된 경우에만 버튼이 표시되는지 확인합니다.
-- phone 타입은 tel: 링크로 동작하는지 확인합니다.
-- messenger, facebook, link 타입은 새 탭으로 열리는지 확인합니다.
-- owner_phone이 자동으로 공개 페이지에 노출되지 않는지 확인합니다.
+3. 3-Minute Setup 확인
+- 3-Minute Setup 안내가 큰 카드처럼 길게 보이지 않고 compact chip 형태로 보이는지 확인합니다.
+- 모바일에서 각 Step chip 높이가 과하게 크지 않은지 확인합니다.
 
-4. 검색과 카테고리 필터 확인
-- 검색어 입력 시 상품명이 기준으로 필터링되는지 확인합니다.
-- 카테고리 탭을 선택한 상태에서 검색어를 입력해도 두 조건이 함께 적용되는지 확인합니다.
-- All 탭 선택 시 전체 상품 기준으로 다시 표시되는지 확인합니다.
+4. Stat cards 확인
+- Current Plan, Items, Images, Image Limit 카드가 모바일에서 2열 compact grid로 보이는지 확인합니다.
+- label과 숫자가 잘리지 않고 읽히는지 확인합니다.
 
-5. 상품 카드 확인
-- 상품 이미지가 lazy loading으로 유지되는지 확인합니다.
-- 이미지가 없는 상품은 No Image 영역이 표시되는지 확인합니다.
-- FEATURED, BEST SELLER, promo label, COMBO 배지가 기존 조건대로 표시되는지 확인합니다.
-- 품절 상품은 Out of Stock 오버레이와 품절 스타일이 유지되는지 확인합니다.
-- 가격, 설명, 재고 상태가 카드 안에서 겹치지 않는지 확인합니다.
+5. Upgrade card 확인
+- Free Plan 또는 Need more sales tools? 카드가 이전보다 짧게 보이는지 확인합니다.
+- Upgrade Plan 버튼이 정상 동작하는지 확인합니다.
 
-6. 정렬 확인
-- 기존 상품 정렬 순서가 바뀌지 않았는지 확인합니다.
-- 이번 변경은 클라이언트 표시 스타일 중심이며 서버 정렬 로직은 변경하지 않았습니다.
+6. Add Item 폼 확인
+- Add Item 영역까지 더 빨리 도달할 수 있는지 확인합니다.
+- Item Name은 넓게 유지되는지 확인합니다.
+- Price + Category, Display Order + Stock Status가 모바일에서 compact 2열로 보이는지 확인합니다.
+- 아주 좁은 화면에서는 레이아웃이 깨지지 않고 세로로 정리되는지 확인합니다.
+- Add Item 버튼이 정상 제출되는지 확인합니다.
 
-7. 모바일 확인
-- 모바일 폭에서 검색 박스, 카테고리 탭, 상품 카드, 연락 버튼이 화면 밖으로 넘치지 않는지 확인합니다.
-- 카테고리 탭은 가로 스크롤로 사용할 수 있는지 확인합니다.
+7. 이미지 업로드 확인
+- Upload from Gallery 버튼을 눌러 이미지 선택이 가능한지 확인합니다.
+- Take Photo 버튼이 모바일 카메라 입력을 여는지 확인합니다.
+- 이미지 자동 최적화 메시지가 표시되는지 확인합니다.
+- Clear Image 버튼이 선택된 이미지를 초기화하는지 확인합니다.
+
+8. 상품 추가 테스트
+- 새 상품을 이름, 가격, 카테고리, 재고 상태와 함께 추가합니다.
+- 상품 추가 후 성공 메시지와 목록 반영을 확인합니다.
+- Featured, Best Seller, Combo 체크박스가 기존 조건대로 동작하는지 확인합니다.
+
+9. Bulk Add Items 확인
+- Bulk Add Items textarea가 이전보다 덜 높게 보이는지 확인합니다.
+- 예시 형식으로 여러 상품을 추가할 수 있는지 확인합니다.
+
+10. Vercel build 확인
+- npm.cmd run build 또는 npm run build를 실행합니다.
+- TypeScript 오류 없이 빌드가 성공하는지 확인합니다.
