@@ -39,14 +39,14 @@ type CategoryData = {
 };
 
 function money(value: number) {
-  return `₱${Number(value || 0).toFixed(2)}`;
+  return `PHP ${Number(value || 0).toFixed(2)}`;
 }
 
 const styles: Record<string, React.CSSProperties> = {
   page: {
     minHeight: '100vh',
-    background: '#f1f5f9',
-    color: '#0f172a',
+    background: '#f4f6f3',
+    color: '#172019',
     padding: '16px',
     fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif'
   },
@@ -56,26 +56,27 @@ const styles: Record<string, React.CSSProperties> = {
     margin: '0 auto'
   },
   hero: {
-    background: '#0f172a',
-    color: 'white',
-    borderRadius: '28px',
+    background: '#244b3a',
+    color: '#ffffff',
+    borderRadius: '14px',
     padding: '24px',
-    boxShadow: '0 18px 40px rgba(15, 23, 42, 0.18)'
+    boxShadow: '0 16px 36px rgba(36, 75, 58, 0.2)'
   },
   eyebrow: {
     margin: 0,
-    color: '#bae6fd',
+    color: '#cde8d4',
     fontSize: '12px',
     fontWeight: 800,
-    letterSpacing: '0.22em',
+    letterSpacing: '0.08em',
     textTransform: 'uppercase'
   },
   title: {
     margin: '12px 0 0',
-    fontSize: 'clamp(34px, 9vw, 56px)',
+    fontSize: '42px',
     lineHeight: 1,
     fontWeight: 900,
-    letterSpacing: '-0.04em'
+    letterSpacing: 0,
+    overflowWrap: 'anywhere'
   },
   meta: {
     display: 'flex',
@@ -93,13 +94,13 @@ const styles: Record<string, React.CSSProperties> = {
   },
   promo: {
     marginTop: '18px',
-    background: '#0284c7',
-    borderRadius: '18px',
+    background: '#f0b45a',
+    borderRadius: '10px',
     padding: '14px 16px',
-    color: '#ffffff',
+    color: '#172019',
     fontWeight: 900,
     fontSize: '17px',
-    boxShadow: '0 10px 25px rgba(2,132,199,0.22)'
+    boxShadow: '0 10px 24px rgba(240,180,90,0.22)'
   },
   contactButton: {
     display: 'inline-flex',
@@ -107,13 +108,13 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'center',
     marginTop: '16px',
     background: '#ffffff',
-    color: '#0f172a',
-    borderRadius: '18px',
+    color: '#244b3a',
+    borderRadius: '10px',
     padding: '13px 16px',
     fontWeight: 900,
     fontSize: '16px',
     textDecoration: 'none',
-    boxShadow: '0 10px 25px rgba(15,23,42,0.18)'
+    boxShadow: '0 10px 24px rgba(23,32,25,0.14)'
   },
   searchBox: {
     position: 'sticky',
@@ -121,23 +122,23 @@ const styles: Record<string, React.CSSProperties> = {
     zIndex: 10,
     marginTop: '16px',
     background: 'rgba(255,255,255,0.96)',
-    border: '1px solid #e2e8f0',
-    borderRadius: '22px',
+    border: '1px solid #dfe5dd',
+    borderRadius: '12px',
     padding: '12px',
-    boxShadow: '0 8px 20px rgba(15,23,42,0.08)',
+    boxShadow: '0 8px 20px rgba(23,32,25,0.08)',
     backdropFilter: 'blur(8px)'
   },
   searchInput: {
     width: '100%',
     boxSizing: 'border-box',
-    border: '1px solid #cbd5e1',
-    borderRadius: '18px',
+    border: '1px solid #ccd6cc',
+    borderRadius: '10px',
     padding: '15px 16px',
     fontSize: '18px',
     fontWeight: 700,
     outline: 'none',
     background: '#ffffff',
-    color: '#0f172a'
+    color: '#172019'
   },
   tabs: {
     display: 'flex',
@@ -151,14 +152,14 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '999px',
     padding: '9px 13px',
     background: '#ffffff',
-    color: '#334155',
+    color: '#33443a',
     fontWeight: 900,
     whiteSpace: 'nowrap',
     cursor: 'pointer'
   },
   tabActive: {
-    borderColor: '#0f172a',
-    background: '#0f172a',
+    borderColor: '#244b3a',
+    background: '#244b3a',
     color: '#ffffff'
   },
   grid: {
@@ -170,7 +171,7 @@ const styles: Record<string, React.CSSProperties> = {
   empty: {
     background: '#ffffff',
     border: '1px dashed #cbd5e1',
-    borderRadius: '24px',
+    borderRadius: '12px',
     padding: '32px',
     textAlign: 'center',
     color: '#64748b',
@@ -178,10 +179,10 @@ const styles: Record<string, React.CSSProperties> = {
   },
   card: {
     background: '#ffffff',
-    border: '1px solid #e2e8f0',
-    borderRadius: '26px',
+    border: '1px solid #dfe5dd',
+    borderRadius: '12px',
     overflow: 'hidden',
-    boxShadow: '0 10px 28px rgba(15,23,42,0.08)'
+    boxShadow: '0 10px 28px rgba(23,32,25,0.07)'
   },
   cardOut: {
     opacity: 0.58
@@ -234,23 +235,23 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '11px',
     lineHeight: 1,
     fontWeight: 900,
-    letterSpacing: '0.03em'
+    letterSpacing: 0
   },
   featuredBadge: {
-    background: '#0f172a',
+    background: '#244b3a',
     color: '#ffffff'
   },
   bestBadge: {
-    background: '#fef3c7',
-    color: '#92400e'
+    background: '#fff2cc',
+    color: '#7a4c0f'
   },
   promoBadge: {
-    background: '#ffe4e6',
-    color: '#be123c'
+    background: '#ffe4dc',
+    color: '#9d3d2c'
   },
   comboBadge: {
-    background: '#e0f2fe',
-    color: '#0369a1'
+    background: '#e4f4ea',
+    color: '#286245'
   },
   productHead: {
     display: 'flex',
@@ -263,12 +264,12 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '22px',
     lineHeight: 1.12,
     fontWeight: 900,
-    letterSpacing: '-0.02em'
+    letterSpacing: 0
   },
   price: {
     flexShrink: 0,
-    background: '#f1f5f9',
-    borderRadius: '16px',
+    background: '#eef7f0',
+    borderRadius: '10px',
     padding: '10px 12px',
     fontSize: '18px',
     fontWeight: 900
@@ -288,8 +289,8 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 900
   },
   inStock: {
-    background: '#dcfce7',
-    color: '#15803d'
+    background: '#dff3e5',
+    color: '#286245'
   },
   outStock: {
     background: '#ffe4e6',
